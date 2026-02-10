@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="card">
+    <div class="card-header">
+      <h2>Export</h2>
+      <div class="muted">Download a zip, then paste the files into a Dataiku Standard WebApp.</div>
+    </div>
+    <div class="card-body">
+      <div class="actions" style="justify-content:flex-start;">
+        <a class="btn btn-primary" href="{{ url_for('project_export_zip', project_id=project.id) }}">Download Zip</a>
+      </div>
+
+      <h3 class="section-title" style="margin-top:14px;">Generated Files</h3>
+      <div class="hint">These are exactly what will be inside the zip.</div>
+
+      {% for a in apps %}
+        <details class="details" {% if loop.first %}open{% endif %}>
+          <summary class="summary">
+            <span class="mono">{{ a.slug }}</span>
+            <span class="muted">{{ a.title }}</span>
+          </summary>
+          {% for fname, content in a.files.items() %}
+            <details class="details file">
+              <summary class="summary"><span class="mono">{{ fname }}</span></summary>
+              <pre class="code"><code>{{ content }}</code></pre>
+            </details>
+          {% endfor %}
+        </details>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}
+

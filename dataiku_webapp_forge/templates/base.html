@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ title or "Dataiku WebApp Forge" }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='forge.css') }}" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="{{ url_for('index') }}">
+          <div class="brand-mark">Forge</div>
+          <div class="brand-text">
+            <div class="brand-title">Dataiku WebApp Forge</div>
+            <div class="brand-sub">Build simple Dataiku Standard WebApps from CSV schemas</div>
+          </div>
+        </a>
+
+        <div class="top-actions">
+          {% if project %}
+            <a class="btn" href="{{ url_for('index') }}">Projects</a>
+            <a class="btn btn-primary" href="{{ url_for('project_export_page', project_id=project.id) }}">Export</a>
+          {% else %}
+            <a class="btn" href="{{ url_for('index') }}">Projects</a>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if project %}
+        <div class="projectbar">
+          <div class="projectbar-inner">
+            <div class="project-meta">
+              <div class="project-name">{{ (project.data.get('app') or {}).get('name') or 'Untitled' }}</div>
+              <div class="project-id">ID: <span class="mono">{{ project.id[:8] }}</span></div>
+            </div>
+            <nav class="tabs" aria-label="Project navigation">
+              <a class="tab {% if active_tab=='sources' %}active{% endif %}" href="{{ url_for('project_sources', project_id=project.id) }}">Sources</a>
+              <a class="tab {% if active_tab=='transform' %}active{% endif %}" href="{{ url_for('project_transform', project_id=project.id) }}">Transform</a>
+              <a class="tab {% if active_tab=='ui' %}active{% endif %}" href="{{ url_for('project_ui', project_id=project.id) }}">UI</a>
+              <a class="tab {% if active_tab=='export' %}active{% endif %}" href="{{ url_for('project_export_page', project_id=project.id) }}">Export</a>
+            </nav>
+          </div>
+        </div>
+      {% endif %}
+    </header>
+
+    <main class="container">
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <div>Targets Dataiku Standard WebApps (HTML body only, Flask backend in `backend.py`).</div>
+        <div class="muted">Generator state saved under <span class="mono">{{ config.get('INSTANCE_PATH', '') }}/projects</span></div>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,769 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="card">
+    <div class="card-header">
+      <h2>Transform</h2>
+      <div class="muted">Join, filter, computed columns, and output shape. Use Analyze to preview results.</div>
+    </div>
+    <div class="card-body">
+      {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+      <form method="post">
+        <input type="hidden" name="output_order" id="outputOrderInput" value="{{ (transform.get('output_order') or [])|join(',') }}" />
+
+        <h3 class="section-title">Presets</h3>
+        <div class="panel">
+          <div class="grid2">
+            <div>
+              <label>Apply Preset</label>
+              <div class="grid2" style="grid-template-columns: 1fr auto;">
+                <select name="preset_id">
+                  <option value="">Select preset...</option>
+                  {% for p in presets or [] %}
+                    <option value="{{ p.get('id') }}">{{ p.get('name') }}</option>
+                  {% endfor %}
+                </select>
+                <button class="btn" type="submit" name="action" value="apply_preset">Apply</button>
+              </div>
+              <div class="hint">Presets save Transform + UI choices (not datasets or CSVs).</div>
+            </div>
+            <div>
+              <label>Save Preset</label>
+              <div class="grid2" style="grid-template-columns: 1fr auto;">
+                <input name="preset_name" placeholder="Preset name" />
+                <button class="btn" type="submit" name="action" value="save_preset">Save</button>
+              </div>
+              <div class="hint">Use this for team standards (column labels, filters, templates).</div>
+            </div>
+          </div>
+        </div>
+
+        <h3 class="section-title">Joins (optional)</h3>
+        <div class="panel">
+          <label class="check">
+            <input type="checkbox" name="join_b_enabled" {% if join_b.get('enabled') %}checked{% endif %} {% if not cols_b %}disabled{% endif %} />
+            <span>Join current result to Dataset B</span>
+          </label>
+          {% if not cols_b %}
+            <div class="hint">Upload CSV B in Sources to enable joins.</div>
+          {% endif %}
+
+          <div class="grid2" style="margin-top:10px;">
+            <div>
+              <label>Join Type</label>
+              <select name="join_b_how" {% if not cols_b %}disabled{% endif %}>
+                <option value="left" {% if (join_b.get('how') or 'left') == 'left' %}selected{% endif %}>Left (keep all left rows)</option>
+                <option value="inner" {% if (join_b.get('how') or 'left') == 'inner' %}selected{% endif %}>Inner (matched only)</option>
+              </select>
+            </div>
+            <div class="muted">Multi-key joins supported. Add more key pairs if needed.</div>
+          </div>
+
+          <div id="joinKeysB">
+            {% set join_keys_b = join_b.get('keys') if join_b.get('keys') is not none else [{'left':'','right':''}] %}
+            {% for k in join_keys_b %}
+              <div class="filter-row join-row">
+                <select name="join_b_left_{{ loop.index0 }}" {% if not cols_b %}disabled{% endif %}>
+                  <option value="">Left key...</option>
+                  {% for c in cols_a %}
+                    <option value="{{ c }}" {% if (k.get('left') or '') == c %}selected{% endif %}>{{ c }}</option>
+                  {% endfor %}
+                </select>
+                <select name="join_b_right_{{ loop.index0 }}" {% if not cols_b %}disabled{% endif %}>
+                  <option value="">Dataset B key...</option>
+                  {% for c in cols_b %}
+                    <option value="{{ c }}" {% if (k.get('right') or '') == c %}selected{% endif %}>{{ c }}</option>
+                  {% endfor %}
+                </select>
+                <div></div>
+                <button class="btn btn-small" type="button" onclick="removeJoinKey(this, 'B')">Remove</button>
+              </div>
+            {% endfor %}
+          </div>
+          <button class="btn" type="button" onclick="addJoinKeyB()" {% if not cols_b %}disabled{% endif %}>Add join key</button>
+
+          <div class="menu-sep" style="margin: 14px 0;"></div>
+
+          <label class="check">
+            <input type="checkbox" name="join_c_enabled" {% if join_c.get('enabled') %}checked{% endif %} {% if not cols_c %}disabled{% endif %} />
+            <span>Join current result to Dataset C (advanced)</span>
+          </label>
+          {% if not cols_c %}
+            <div class="hint">Upload CSV C in Sources to enable the second join step.</div>
+          {% endif %}
+
+          <div class="grid2" style="margin-top:10px;">
+            <div>
+              <label>Join Type</label>
+              <select name="join_c_how" {% if not cols_c %}disabled{% endif %}>
+                <option value="left" {% if (join_c.get('how') or 'left') == 'left' %}selected{% endif %}>Left (keep all left rows)</option>
+                <option value="inner" {% if (join_c.get('how') or 'left') == 'inner' %}selected{% endif %}>Inner (matched only)</option>
+              </select>
+            </div>
+            <div class="muted">Left keys can reference A columns and (if B join enabled) <span class="mono">b__*</span> columns.</div>
+          </div>
+
+          <div id="joinKeysC">
+            {% set join_keys_c = join_c.get('keys') if join_c.get('keys') is not none else [{'left':'','right':''}] %}
+            {% for k in join_keys_c %}
+              <div class="filter-row join-row">
+                <select name="join_c_left_{{ loop.index0 }}" {% if not cols_c %}disabled{% endif %}>
+                  <option value="">Left key...</option>
+                  {% for c in left_cols_for_c %}
+                    <option value="{{ c }}" {% if (k.get('left') or '') == c %}selected{% endif %}>{{ c }}</option>
+                  {% endfor %}
+                </select>
+                <select name="join_c_right_{{ loop.index0 }}" {% if not cols_c %}disabled{% endif %}>
+                  <option value="">Dataset C key...</option>
+                  {% for c in cols_c %}
+                    <option value="{{ c }}" {% if (k.get('right') or '') == c %}selected{% endif %}>{{ c }}</option>
+                  {% endfor %}
+                </select>
+                <div></div>
+                <button class="btn btn-small" type="button" onclick="removeJoinKey(this, 'C')">Remove</button>
+              </div>
+            {% endfor %}
+          </div>
+          <button class="btn" type="button" onclick="addJoinKeyC()" {% if not cols_c %}disabled{% endif %}>Add join key</button>
+        </div>
+
+        <h3 class="section-title" style="margin-top:14px;">Columns</h3>
+        <div class="hint">
+          Dataset B columns are referenced as <span class="mono">b__&lt;column&gt;</span>.
+          Dataset C columns are referenced as <span class="mono">c__&lt;column&gt;</span>.
+        </div>
+
+        <div class="panel" style="margin-top:10px;">
+          <div class="grid2" style="grid-template-columns: 1fr auto;">
+            <div>
+              <label>Column search</label>
+              <input id="colSearch" placeholder="Type to filter columns..." />
+              <div class="hint">Filters the column lists below (A, B, and C).</div>
+            </div>
+            <div style="display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap;">
+              <button class="btn" type="button" onclick="includeAll('a')">Include all A</button>
+              <button class="btn" type="button" onclick="excludeAll('a')">Exclude all A</button>
+              <button class="btn" type="button" onclick="includeAll('b')">Include all B</button>
+              <button class="btn" type="button" onclick="excludeAll('b')">Exclude all B</button>
+              <button class="btn" type="button" onclick="includeAll('c')" {% if not cols_c %}disabled{% endif %}>Include all C</button>
+              <button class="btn" type="button" onclick="excludeAll('c')" {% if not cols_c %}disabled{% endif %}>Exclude all C</button>
+              <button class="btn" type="button" onclick="autoLabels()">Auto-label</button>
+            </div>
+          </div>
+        </div>
+
+        <h3 class="section-title" style="margin-top:14px;">Output Order</h3>
+        <div class="panel">
+          <div class="hint">Drag to reorder columns. Only included columns appear here.</div>
+          <div id="outputList" class="out-list"></div>
+        </div>
+
+        <div class="columns {% if cols_c %}columns3{% endif %}">
+          <div class="colbox">
+            <div class="colbox-title">Dataset A</div>
+            <div class="colrows">
+              {% for i, c in cols_a_entries %}
+                <div class="colrow">
+                  <label class="check small">
+                    <input type="checkbox" name="col_include_{{ i }}" {% if c.get('include') %}checked{% endif %} />
+                    <span class="mono">{{ c.get('name') }}</span>
+                  </label>
+                  <input class="col-label" name="col_label_{{ i }}" value="{{ c.get('label') }}" placeholder="Header label" />
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="colbox">
+            <div class="colbox-title">Dataset B</div>
+            {% if not cols_b %}
+              <div class="empty">No CSV B uploaded.</div>
+            {% else %}
+              <div class="colrows">
+                {% for i, c in cols_b_entries %}
+                  <div class="colrow">
+                    <label class="check small">
+                      <input type="checkbox" name="col_include_{{ i }}" {% if c.get('include') %}checked{% endif %} />
+                      <span class="mono">{{ c.get('name') }}</span>
+                    </label>
+                    <input class="col-label" name="col_label_{{ i }}" value="{{ c.get('label') }}" placeholder="Header label" />
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="colbox">
+            <div class="colbox-title">Dataset C</div>
+            {% if not cols_c %}
+              <div class="empty">No CSV C uploaded.</div>
+            {% else %}
+              <div class="colrows">
+                {% for i, c in cols_c_entries %}
+                  <div class="colrow">
+                    <label class="check small">
+                      <input type="checkbox" name="col_include_{{ i }}" {% if c.get('include') %}checked{% endif %} />
+                      <span class="mono">{{ c.get('name') }}</span>
+                    </label>
+                    <input class="col-label" name="col_label_{{ i }}" value="{{ c.get('label') }}" placeholder="Header label" />
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <h3 class="section-title" style="margin-top:14px;">Filters (optional)</h3>
+        <div class="panel">
+          <div class="hint">Filter groups are OR’d. Inside a group, filters are AND’d.</div>
+          <div id="filterGroups"></div>
+          <button class="btn" type="button" onclick="addGroup()">Add filter group (OR)</button>
+        </div>
+
+        <h3 class="section-title" style="margin-top:14px;">Computed Columns (optional)</h3>
+        <div class="panel">
+          <div class="hint">Create new columns from existing ones (works in the generated backend).</div>
+          <div id="computed"></div>
+          <button class="btn" type="button" onclick="addComputed()">Add computed column</button>
+        </div>
+
+        <h3 class="section-title" style="margin-top:14px;">Sort & Limit</h3>
+        <div class="grid2">
+          <div>
+            <label>Sort Column (optional)</label>
+            <select name="sort_column">
+              <option value="">(none)</option>
+              {% for c in column_names %}
+                <option value="{{ c }}" {% if (transform.get('sort') or {}).get('column') == c %}selected{% endif %}>{{ c }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label>Sort Direction</label>
+            <select name="sort_direction">
+              <option value="asc" {% if (transform.get('sort') or {}).get('direction','asc') == 'asc' %}selected{% endif %}>Ascending</option>
+              <option value="desc" {% if (transform.get('sort') or {}).get('direction','asc') == 'desc' %}selected{% endif %}>Descending</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div>
+            <label>Row Limit</label>
+            <input name="limit" value="{{ transform.get('limit', 2000) }}" />
+            <div class="hint">Keeps the UI fast. You can raise this if needed.</div>
+          </div>
+          <div></div>
+        </div>
+
+        <div class="actions">
+          <button class="btn" type="button" onclick="runAnalyze()">Analyze</button>
+          <button class="btn" name="next" value="ui" type="submit">Save & UI</button>
+          <button class="btn btn-primary" type="submit">Save & Export</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:16px;">
+    <div class="card-header">
+      <h2>Analyze</h2>
+      <div class="muted">Preview output and catch config errors before exporting.</div>
+    </div>
+    <div class="card-body">
+      <div id="analyzeStatus" class="muted">Click Analyze above.</div>
+      <div id="analyzeErrors" style="margin-top:10px;"></div>
+      <div id="analyzeWarnings" style="margin-top:10px;"></div>
+      <div id="joinHealth" style="margin-top:10px;"></div>
+      <div id="previewTable" style="margin-top:12px;"></div>
+    </div>
+  </section>
+
+  <template id="groupTemplate">
+    <div class="panel" style="margin-top:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+        <div class="section-title" style="margin:0;">Group</div>
+        <button class="btn btn-small" type="button" data-remove-group>Remove group</button>
+      </div>
+      <div class="muted">All filters in this group must match.</div>
+      <div class="filters"></div>
+      <button class="btn btn-small" type="button" data-add-filter>Add filter (AND)</button>
+    </div>
+  </template>
+
+  <template id="filterTemplate">
+    <div class="filter-row">
+      <select data-name="col">
+        <option value="">Select column...</option>
+        {% for c in column_names %}
+          <option value="{{ c }}">{{ c }}</option>
+        {% endfor %}
+      </select>
+      <select data-name="op">
+        <option value="eq">equals</option>
+        <option value="neq">not equals</option>
+        <option value="contains">contains</option>
+        <option value="contains_cs">contains (case sensitive)</option>
+        <option value="regex">contains (regex)</option>
+        <option value="startswith">starts with</option>
+        <option value="startswith_cs">starts with (case sensitive)</option>
+        <option value="endswith">ends with</option>
+        <option value="endswith_cs">ends with (case sensitive)</option>
+        <option value="blank">is blank</option>
+        <option value="notblank">not blank</option>
+        <option value="in">in (comma list)</option>
+        <option value="notin">not in (comma list)</option>
+        <option value="gt">&gt;</option>
+        <option value="gte">&gt;=</option>
+        <option value="lt">&lt;</option>
+        <option value="lte">&lt;=</option>
+        <option value="date_gt">date &gt;</option>
+        <option value="date_gte">date &gt;=</option>
+        <option value="date_lt">date &lt;</option>
+        <option value="date_lte">date &lt;=</option>
+      </select>
+      <input data-name="val" placeholder="Value" />
+      <button class="btn btn-small" type="button" onclick="removeFilter(this)">Remove</button>
+    </div>
+  </template>
+
+  <script>
+    var existingGroups = {{ (transform.get('filter_groups') or [{'filters': []}]) | tojson }};
+    var existingComputed = {{ (transform.get('computed_columns') or []) | tojson }};
+
+    function removeFilter(btn) {
+      var row = btn.closest('.filter-row');
+      if (row) row.remove();
+      renumberGroups();
+    }
+
+    function addGroup(filters) {
+      var gtpl = document.getElementById('groupTemplate');
+      var gnode = gtpl.content.cloneNode(true);
+      var groupEl = gnode.querySelector('.panel');
+      groupEl.querySelector('[data-remove-group]').addEventListener('click', function () {
+        groupEl.remove();
+        renumberGroups();
+      });
+      groupEl.querySelector('[data-add-filter]').addEventListener('click', function () {
+        addFilterTo(groupEl.querySelector('.filters'));
+        renumberGroups();
+      });
+      document.getElementById('filterGroups').appendChild(gnode);
+
+      var filtersEl = document.getElementById('filterGroups').lastElementChild.querySelector('.filters');
+      (filters || []).forEach(function (f) {
+        addFilterTo(filtersEl, f);
+      });
+      if (!filters || !filters.length) addFilterTo(filtersEl, null);
+      renumberGroups();
+    }
+
+    function addFilterTo(container, value) {
+      var tpl = document.getElementById('filterTemplate');
+      var node = tpl.content.cloneNode(true);
+      var row = node.querySelector('.filter-row');
+      if (value) {
+        row.querySelector('select[data-name=\"col\"]').value = value.column || '';
+        row.querySelector('select[data-name=\"op\"]').value = value.op || 'eq';
+        row.querySelector('input[data-name=\"val\"]').value = value.value || '';
+      }
+      container.appendChild(node);
+    }
+
+    function renumberGroups() {
+      var groups = document.querySelectorAll('#filterGroups > .panel');
+      groups.forEach(function (g, gi) {
+        var rows = g.querySelectorAll('.filter-row');
+        rows.forEach(function (row, i) {
+          var selCol = row.querySelector('select[data-name=\"col\"]');
+          var selOp = row.querySelector('select[data-name=\"op\"]');
+          var inpVal = row.querySelector('input[data-name=\"val\"]');
+          if (selCol) selCol.name = 'fg_' + gi + '_col_' + i;
+          if (selOp) selOp.name = 'fg_' + gi + '_op_' + i;
+          if (inpVal) inpVal.name = 'fg_' + gi + '_val_' + i;
+        });
+      });
+    }
+
+    function removeJoinKey(btn, which) {
+      var row = btn.closest('.join-row');
+      if (row) row.remove();
+      if (which === 'C') renumberJoinKeysC();
+      else renumberJoinKeysB();
+    }
+
+    function addJoinKeyB() {
+      var container = document.getElementById('joinKeysB');
+      var idx = container.querySelectorAll('.join-row').length;
+      var row = document.createElement('div');
+      row.className = 'filter-row join-row';
+      row.innerHTML = `
+        <select name=\"join_b_left_${idx}\">
+          <option value=\"\">Left key...</option>
+          {% for c in cols_a %}<option value=\"{{ c }}\">{{ c }}</option>{% endfor %}
+        </select>
+        <select name=\"join_b_right_${idx}\">
+          <option value=\"\">Dataset B key...</option>
+          {% for c in cols_b %}<option value=\"{{ c }}\">{{ c }}</option>{% endfor %}
+        </select>
+        <div></div>
+        <button class=\"btn btn-small\" type=\"button\" onclick=\"removeJoinKey(this, 'B')\">Remove</button>
+      `;
+      container.appendChild(row);
+      renumberJoinKeysB();
+    }
+
+    function renumberJoinKeysB() {
+      var rows = document.querySelectorAll('#joinKeysB .join-row');
+      rows.forEach(function (row, i) {
+        var a = row.querySelector('select[name^=\"join_b_left_\"]');
+        var b = row.querySelector('select[name^=\"join_b_right_\"]');
+        if (a) a.name = 'join_b_left_' + i;
+        if (b) b.name = 'join_b_right_' + i;
+      });
+    }
+
+    function addJoinKeyC() {
+      var container = document.getElementById('joinKeysC');
+      var idx = container.querySelectorAll('.join-row').length;
+      var row = document.createElement('div');
+      row.className = 'filter-row join-row';
+      row.innerHTML = `
+        <select name=\"join_c_left_${idx}\">
+          <option value=\"\">Left key...</option>
+          {% for c in left_cols_for_c %}<option value=\"{{ c }}\">{{ c }}</option>{% endfor %}
+        </select>
+        <select name=\"join_c_right_${idx}\">
+          <option value=\"\">Dataset C key...</option>
+          {% for c in cols_c %}<option value=\"{{ c }}\">{{ c }}</option>{% endfor %}
+        </select>
+        <div></div>
+        <button class=\"btn btn-small\" type=\"button\" onclick=\"removeJoinKey(this, 'C')\">Remove</button>
+      `;
+      container.appendChild(row);
+      renumberJoinKeysC();
+    }
+
+    function renumberJoinKeysC() {
+      var rows = document.querySelectorAll('#joinKeysC .join-row');
+      rows.forEach(function (row, i) {
+        var a = row.querySelector('select[name^=\"join_c_left_\"]');
+        var b = row.querySelector('select[name^=\"join_c_right_\"]');
+        if (a) a.name = 'join_c_left_' + i;
+        if (b) b.name = 'join_c_right_' + i;
+      });
+    }
+
+    function addComputed(value) {
+      var container = document.getElementById('computed');
+      var idx = container.querySelectorAll('.panel').length;
+      var panel = document.createElement('div');
+      panel.className = 'panel';
+      panel.style.marginTop = '10px';
+      panel.innerHTML = `
+        <div class=\"filter-row\" style=\"grid-template-columns: 1fr 1fr 1fr auto;\">
+          <select data-name=\"type\">
+            <option value=\"concat\">concat</option>
+            <option value=\"coalesce\">coalesce</option>
+            <option value=\"date_format\">date_format</option>
+            <option value=\"bucket\">bucket</option>
+          </select>
+          <input data-name=\"name\" placeholder=\"new_column_name\" />
+          <label class=\"check small\" style=\"justify-content:flex-start;\">
+            <input type=\"checkbox\" data-name=\"include\" />
+            <span>Include in output</span>
+          </label>
+          <button class=\"btn btn-small\" type=\"button\" data-remove>Remove</button>
+        </div>
+        <div class=\"grid2\" style=\"margin-top:10px;\">
+          <div>
+            <label class=\"small\">Columns (comma-separated)</label>
+            <input data-name=\"cols\" placeholder=\"col_a, col_b\" />
+          </div>
+          <div>
+            <label class=\"small\">Extra</label>
+            <input data-name=\"extra\" placeholder=\"sep or format or bucket size\" />
+          </div>
+        </div>
+      `;
+      panel.querySelector('[data-remove]').addEventListener('click', function () {
+        panel.remove();
+        renumberComputed();
+      });
+      container.appendChild(panel);
+      if (value) {
+        panel.querySelector('select[data-name=\"type\"]').value = value.type || 'concat';
+        panel.querySelector('input[data-name=\"name\"]').value = value.name || '';
+        panel.querySelector('input[data-name=\"include\"]').checked = !!value.include;
+        panel.querySelector('input[data-name=\"cols\"]').value = (value.columns || []).join(', ');
+        if (value.type === 'concat') panel.querySelector('input[data-name=\"extra\"]').value = value.sep || '';
+        if (value.type === 'coalesce') panel.querySelector('input[data-name=\"extra\"]').value = '';
+        if (value.type === 'date_format') panel.querySelector('input[data-name=\"extra\"]').value = (value.column || '') + ' | ' + (value.format || '%Y-%m-%d');
+        if (value.type === 'bucket') panel.querySelector('input[data-name=\"extra\"]').value = (value.column || '') + ' | ' + String(value.size || 10);
+      }
+      renumberComputed();
+    }
+
+    function renumberComputed() {
+      var panels = document.querySelectorAll('#computed .panel');
+      panels.forEach(function (p, i) {
+        var type = p.querySelector('select[data-name=\"type\"]');
+        var name = p.querySelector('input[data-name=\"name\"]');
+        var include = p.querySelector('input[data-name=\"include\"]');
+        var cols = p.querySelector('input[data-name=\"cols\"]');
+        var extra = p.querySelector('input[data-name=\"extra\"]');
+        if (type) type.name = 'cc_type_' + i;
+        if (name) name.name = 'cc_name_' + i;
+        if (include) include.name = 'cc_include_' + i;
+        if (cols) cols.name = 'cc_cols_' + i;
+        if (extra) {
+          // We also mirror into type-specific fields on submit using a small handler.
+          extra.name = 'cc_extra_' + i;
+        }
+      });
+    }
+
+    function runAnalyze() {
+      var status = document.getElementById('analyzeStatus');
+      status.textContent = 'Analyzing...';
+      fetch('{{ url_for(\"project_analyze\", project_id=project.id) }}')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data || data.status !== 'ok') throw new Error((data && data.message) || 'Analyze failed');
+          status.textContent = 'Analyze complete.';
+
+          var errs = (data.validation && data.validation.errors) || [];
+          var warns = (data.validation && data.validation.warnings) || [];
+
+          document.getElementById('analyzeErrors').innerHTML = errs.length
+            ? '<div class=\"alert\">Errors:<br>' + errs.map(function (e) { return escapeHtml(e); }).join('<br>') + '</div>'
+            : '';
+          document.getElementById('analyzeWarnings').innerHTML = warns.length
+            ? '<div class=\"note\">Warnings:<br>' + warns.map(function (w) { return escapeHtml(w); }).join('<br>') + '</div>'
+            : '';
+
+          var h = data.join_health || {};
+          var steps = (h && h.steps) || [];
+          var healthHtml = '';
+          if (steps && steps.length) {
+            healthHtml += '<div class=\"note\"><b>Join health (sample):</b><br>';
+            steps.forEach(function (s) {
+              var label = (s.right || '').toUpperCase();
+              healthHtml += '<div style=\"margin-top:8px;\">';
+              healthHtml += '<b>Join to Dataset ' + escapeHtml(label) + '</b><br>';
+              healthHtml += 'Match rate: ' + (s.match_rate == null ? '—' : (Math.round(s.match_rate * 100) + '%')) + '<br>';
+              healthHtml += 'Left blank-key rate: ' + (s.left_key_blank_rate == null ? '—' : (Math.round(s.left_key_blank_rate * 100) + '%')) + '<br>';
+              healthHtml += 'Right blank-key rate: ' + (s.right_key_blank_rate == null ? '—' : (Math.round(s.right_key_blank_rate * 100) + '%')) + '<br>';
+              healthHtml += 'Left dup-key rate: ' + Math.round((s.left_key_dup_rate || 0) * 100) + '%<br>';
+              healthHtml += 'Right dup-key rate: ' + Math.round((s.right_key_dup_rate || 0) * 100) + '%<br>';
+              healthHtml += '</div>';
+            });
+            healthHtml += '</div>';
+          }
+          document.getElementById('joinHealth').innerHTML = healthHtml;
+
+          var p = data.preview || {};
+          var cols = p.columns || [];
+          var rows = p.rows || [];
+          if (!cols.length) {
+            document.getElementById('previewTable').innerHTML = '<div class=\"empty\">No preview rows.</div>';
+            return;
+          }
+          var table = '<div class=\"note\"><b>Sample output</b> (first ' + rows.length + ' rows)</div>';
+          table += '<div class=\"panel\" style=\"overflow:auto;\"><table class=\"table\"><thead><tr>';
+          cols.forEach(function (c) { table += '<th>' + escapeHtml(c.label || c.name) + '</th>'; });
+          table += '</tr></thead><tbody>';
+          rows.forEach(function (r) {
+            table += '<tr>';
+            cols.forEach(function (c) { table += '<td>' + escapeHtml((r || {})[c.name]) + '</td>'; });
+            table += '</tr>';
+          });
+          table += '</tbody></table></div>';
+          document.getElementById('previewTable').innerHTML = table;
+        })
+        .catch(function (err) {
+          status.textContent = 'Analyze failed: ' + String(err && err.message ? err.message : err);
+        });
+    }
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Initialize filter groups and computed columns from saved state.
+    if (existingGroups && existingGroups.length) {
+      existingGroups.forEach(function (g) { addGroup((g && g.filters) || []); });
+    } else {
+      addGroup([]);
+    }
+    if (existingComputed && existingComputed.length) {
+      existingComputed.forEach(function (c) { addComputed(c); });
+    }
+
+    function titleCase(s) {
+      return String(s || '')
+        .replace(/_/g, ' ')
+        .replace(/\\s+/g, ' ')
+        .trim()
+        .split(' ')
+        .map(function (w) { return w ? (w.charAt(0).toUpperCase() + w.slice(1)) : ''; })
+        .join(' ');
+    }
+
+    function autoLabels() {
+      document.querySelectorAll('.colrow .col-label').forEach(function (inp) {
+        if (!inp.value || inp.value === inp.getAttribute('placeholder')) {
+          var row = inp.closest('.colrow');
+          var nameEl = row ? row.querySelector('.mono') : null;
+          var name = nameEl ? nameEl.textContent : '';
+          inp.value = titleCase(name);
+        }
+      });
+      rebuildOutputList();
+    }
+
+    function includeAll(source) {
+      document.querySelectorAll('.colbox').forEach(function (box) {
+        var title = (box.querySelector('.colbox-title') || {}).textContent || '';
+        var isA = title.indexOf('Dataset A') !== -1;
+        var isB = title.indexOf('Dataset B') !== -1;
+        var isC = title.indexOf('Dataset C') !== -1;
+        if ((source === 'a' && !isA) || (source === 'b' && !isB) || (source === 'c' && !isC)) return;
+        box.querySelectorAll('input[type=\"checkbox\"][name^=\"col_include_\"]').forEach(function (cb) {
+          cb.checked = true;
+        });
+      });
+      rebuildOutputList();
+    }
+
+    function excludeAll(source) {
+      document.querySelectorAll('.colbox').forEach(function (box) {
+        var title = (box.querySelector('.colbox-title') || {}).textContent || '';
+        var isA = title.indexOf('Dataset A') !== -1;
+        var isB = title.indexOf('Dataset B') !== -1;
+        var isC = title.indexOf('Dataset C') !== -1;
+        if ((source === 'a' && !isA) || (source === 'b' && !isB) || (source === 'c' && !isC)) return;
+        box.querySelectorAll('input[type=\"checkbox\"][name^=\"col_include_\"]').forEach(function (cb) {
+          cb.checked = false;
+        });
+      });
+      rebuildOutputList();
+    }
+
+    function colNameFromRow(row) {
+      var mono = row.querySelector('.mono');
+      return mono ? mono.textContent.trim() : '';
+    }
+
+    function labelFromRow(row) {
+      var inp = row.querySelector('.col-label');
+      return inp ? (inp.value || '') : '';
+    }
+
+    function getIncludedColumnNames() {
+      var out = [];
+      document.querySelectorAll('.colrow').forEach(function (row) {
+        var cb = row.querySelector('input[type=\"checkbox\"][name^=\"col_include_\"]');
+        if (cb && cb.checked) {
+          var name = colNameFromRow(row);
+          if (name) out.push({ name: name, label: labelFromRow(row) });
+        }
+      });
+      // Include computed columns marked include.
+      document.querySelectorAll('#computed .panel').forEach(function (p) {
+        var inc = p.querySelector('input[type=\"checkbox\"][data-name=\"include\"]');
+        var name = p.querySelector('input[data-name=\"name\"]');
+        if (inc && inc.checked && name && name.value.trim()) {
+          out.push({ name: name.value.trim(), label: name.value.trim() });
+        }
+      });
+      return out;
+    }
+
+    function rebuildOutputList() {
+      var container = document.getElementById('outputList');
+      if (!container) return;
+      var currentOrder = (document.getElementById('outputOrderInput').value || '').split(',').filter(Boolean);
+      var included = getIncludedColumnNames();
+      var byName = {};
+      included.forEach(function (c) { byName[c.name] = c; });
+
+      var ordered = [];
+      currentOrder.forEach(function (n) { if (byName[n]) ordered.push(byName[n]); });
+      included.forEach(function (c) { if (currentOrder.indexOf(c.name) === -1) ordered.push(c); });
+
+      container.innerHTML = '';
+      ordered.forEach(function (c) {
+        var el = document.createElement('div');
+        el.className = 'out-item';
+        el.setAttribute('draggable', 'true');
+        el.dataset.name = c.name;
+        el.innerHTML = '<span class=\"out-handle\" aria-hidden=\"true\">⋮⋮</span><span class=\"mono\">' +
+          escapeHtml(c.name) + '</span><span class=\"muted\">' + escapeHtml(c.label || '') + '</span>';
+        container.appendChild(el);
+      });
+
+      updateOutputOrderFromDom();
+    }
+
+    function updateOutputOrderFromDom() {
+      var names = [];
+      document.querySelectorAll('#outputList .out-item').forEach(function (el) {
+        names.push(el.dataset.name);
+      });
+      document.getElementById('outputOrderInput').value = names.join(',');
+    }
+
+    // Drag-and-drop ordering
+    var dragEl = null;
+    document.addEventListener('dragstart', function (e) {
+      var item = e.target.closest && e.target.closest('.out-item');
+      if (!item) return;
+      dragEl = item;
+      item.classList.add('dragging');
+    });
+    document.addEventListener('dragend', function (e) {
+      if (dragEl) dragEl.classList.remove('dragging');
+      dragEl = null;
+      updateOutputOrderFromDom();
+    });
+    document.addEventListener('dragover', function (e) {
+      var container = document.getElementById('outputList');
+      if (!container) return;
+      var over = e.target.closest && e.target.closest('.out-item');
+      if (!dragEl || !over || over === dragEl) return;
+      e.preventDefault();
+      var rect = over.getBoundingClientRect();
+      var after = (e.clientY - rect.top) > (rect.height / 2);
+      container.insertBefore(dragEl, after ? over.nextSibling : over);
+    });
+
+    // Column search
+    document.getElementById('colSearch').addEventListener('input', function () {
+      var q = (this.value || '').toLowerCase();
+      document.querySelectorAll('.colrow').forEach(function (row) {
+        var name = colNameFromRow(row).toLowerCase();
+        var show = !q || name.indexOf(q) !== -1;
+        row.style.display = show ? '' : 'none';
+      });
+    });
+
+    // Rebuild output list when include toggles or labels change
+    document.addEventListener('change', function (e) {
+      if (e.target && e.target.name && e.target.name.indexOf('col_include_') === 0) rebuildOutputList();
+      if (e.target && e.target.name && e.target.name.indexOf('cc_include_') === 0) rebuildOutputList();
+    });
+    document.addEventListener('input', function (e) {
+      if (e.target && e.target.name && e.target.name.indexOf('col_label_') === 0) rebuildOutputList();
+    });
+
+    // Initial build
+    rebuildOutputList();
+  </script>
+{% endblock %}

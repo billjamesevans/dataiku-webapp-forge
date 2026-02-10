@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="hero">
+    <h1>Launch simple Dataiku webapps fast</h1>
+    <p class="lead">
+      Upload 1-2 CSV exports (just to capture schemas), configure optional join and filters, pick columns and labels,
+      then export a Dataiku Standard WebApp bundle: <span class="mono">index.html</span> (body-only),
+      <span class="mono">style.css</span>, <span class="mono">script.js</span>, <span class="mono">backend.py</span>,
+      and <span class="mono">SETUP.md</span>.
+    </p>
+    <form method="post" action="{{ url_for('projects_new') }}">
+      <button class="btn btn-primary" type="submit">Create New Project</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="card-header">
+      <h2>Recent Projects</h2>
+      <div class="muted">Saved under <span class="mono">{{ config.get('INSTANCE_PATH', '') }}/projects</span></div>
+    </div>
+    <div class="card-body">
+      {% if not projects %}
+        <div class="empty">No projects yet. Create one above.</div>
+      {% else %}
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Datasets</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in projects %}
+              <tr>
+                <td class="mono">{{ p.id[:8] }}</td>
+                <td>{{ (p.data.get('app') or {}).get('name') or 'Untitled' }}</td>
+                <td class="muted">
+                  {% set dku = (p.data.get('dataiku') or {}) %}
+                  <span class="mono">{{ dku.get('dataset_a') or 'dataset_a' }}</span>
+                  {% if dku.get('dataset_b') %}<span class="mono"> + {{ dku.get('dataset_b') }}</span>{% endif %}
+                </td>
+                <td class="td-actions">
+                  <div class="menu" data-menu>
+                    <a class="btn" href="{{ url_for('project_sources', project_id=p.id) }}">Open</a>
+                    <button class="btn icon-btn" type="button" aria-label="Project actions" data-menu-btn>
+                      <svg
+                        class="icon"
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 472.615 472.615"
+                        fill="currentColor"
+                        aria-hidden="true"
+                        focusable="false"
+                      >
+                        <path d="M472.615 274.117V198.4l-55.335-9.255c-4.332-16.64-10.929-32.492-19.692-47.458L430.178 96l-53.563-53.563-45.686 32.591c-14.966-8.763-30.917-15.36-47.557-19.692L274.215 0H198.4l-9.157 55.335c-16.64 4.332-32.591 10.929-47.557 19.692L96 42.437 42.437 96l32.591 45.686c-8.763 14.966-15.36 30.818-19.692 47.458L0 198.4v75.717l55.335 9.255c4.332 16.64 10.929 32.591 19.692 47.557l-32.591 45.686L96 430.178l45.686-32.689c14.966 8.862 30.917 15.458 47.557 19.791l9.157 55.335h75.815l9.157-55.335c16.64-4.332 32.591-10.929 47.557-19.791l45.686 32.689 53.563-53.563-32.591-45.686c8.763-14.966 15.36-30.917 19.692-47.557ZM236.308 334.769c-54.252 0-98.462-44.209-98.462-98.462 0-54.351 44.209-98.462 98.462-98.462s98.462 44.111 98.462 98.462c0 54.252-44.209 98.462-98.462 98.462z"/>
+                      </svg>
+                    </button>
+                    <div class="menu-panel" role="menu">
+                      <a class="menu-item" role="menuitem" href="{{ url_for('project_export_page', project_id=p.id) }}">Export</a>
+                      <a class="menu-item" role="menuitem" href="{{ url_for('project_export_zip', project_id=p.id) }}">Download zip</a>
+                      <div class="menu-sep"></div>
+                      <form method="post" action="{{ url_for('project_duplicate', project_id=p.id) }}">
+                        <button class="menu-item" role="menuitem" type="submit">Duplicate</button>
+                      </form>
+                      <form method="post" action="{{ url_for('project_delete', project_id=p.id) }}" onsubmit="return confirm('Delete this project? This cannot be undone.');">
+                        <button class="menu-item menu-danger" role="menuitem" type="submit">Delete</button>
+                      </form>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+    </div>
+  </section>
+
+  <script>
+    (function () {
+      function closeAll(except) {
+        document.querySelectorAll('[data-menu].open').forEach(function (m) {
+          if (except && m === except) return;
+          m.classList.remove('open');
+        });
+      }
+
+      document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-menu-btn]');
+        if (btn) {
+          var menu = btn.closest('[data-menu]');
+          var willOpen = !menu.classList.contains('open');
+          closeAll(menu);
+          if (willOpen) menu.classList.add('open');
+          return;
+        }
+        if (!e.target.closest('[data-menu]')) closeAll(null);
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeAll(null);
+      });
+    })();
+  </script>
+{% endblock %}

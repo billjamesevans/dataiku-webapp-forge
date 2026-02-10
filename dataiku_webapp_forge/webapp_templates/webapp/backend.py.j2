@@ -1,0 +1,449 @@
+import json
+from datetime import datetime
+
+import pandas as pd
+import dataiku
+from flask import Flask, jsonify, request
+
+app = Flask(__name__)
+
+# --- Configuration (generated) ---
+APP_NAME = {{ app_name|py }}
+SUBTITLE = {{ (subtitle or '')|py }}
+
+DATASET_A = {{ (dataiku.get('dataset_a') or 'dataset_a')|py }}
+DATASET_B = {{ (dataiku.get('dataset_b') or '')|py }}
+DATASET_C = {{ (dataiku.get('dataset_c') or '')|py }}
+
+TRANSFORM = {{ (transform or {})|py }}
+UI = {{ (ui or {})|py }}
+
+# Output columns (name = backend column key; label = header in UI)
+COLUMNS = {{ (columns_selected or [])|py }}
+
+def _prefix_columns(df: pd.DataFrame, prefix: str) -> pd.DataFrame:
+    rename = {c: (prefix + c) for c in df.columns}
+    return df.rename(columns=rename)
+
+
+def _dataset_df(name: str) -> pd.DataFrame:
+    if not name:
+        raise ValueError("Missing dataset name.")
+    ds = dataiku.Dataset(name)
+    return ds.get_dataframe()
+
+
+def _join_steps() -> list:
+    """
+    Canonical join config is TRANSFORM['joins'] (sequential steps).
+    Backward compat: TRANSFORM['join_enabled'] + TRANSFORM['join'].
+    """
+    joins = (TRANSFORM or {}).get("joins")
+    if isinstance(joins, list) and joins:
+        out = []
+        for s in joins:
+            if not isinstance(s, dict):
+                continue
+            r = str(s.get("right") or "").strip().lower()
+            if r not in {"b", "c"}:
+                continue
+            out.append(
+                {
+                    "right": r,
+                    "enabled": bool(s.get("enabled")),
+                    "how": str(s.get("how") or "left").strip().lower(),
+                    "keys": s.get("keys") if isinstance(s.get("keys"), list) else [],
+                }
+            )
+        # Ensure stable order
+        by = {s["right"]: s for s in out if isinstance(s, dict) and s.get("right")}
+        res = []
+        if "b" in by:
+            res.append(by["b"])
+        if "c" in by:
+            res.append(by["c"])
+        return res
+
+    # Legacy: single join to B
+    join_enabled = bool((TRANSFORM or {}).get("join_enabled")) and bool(DATASET_B)
+    join = (TRANSFORM or {}).get("join") or {}
+    keys = join.get("keys") if isinstance(join.get("keys"), list) else []
+    pairs = []
+    for k in keys:
+        if not isinstance(k, dict):
+            continue
+        a = str(k.get("a") or "").strip()
+        b = str(k.get("b") or "").strip()
+        if a or b:
+            pairs.append({"left": a, "right": b})
+    if not pairs:
+        pairs = [{"left": "", "right": ""}]
+    return [{"right": "b", "enabled": join_enabled, "how": str(join.get("how") or "left").strip().lower(), "keys": pairs}]
+
+
+def _jsonable(value):
+    if value is None:
+        return None
+    try:
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+    if isinstance(value, (pd.Timestamp, datetime)):
+        try:
+            return value.isoformat()
+        except Exception:
+            return str(value)
+    try:
+        import numpy as np
+
+        if isinstance(value, (np.integer, np.floating, np.bool_)):
+            return value.item()
+    except Exception:
+        pass
+    try:
+        json.dumps(value)
+        return value
+    except Exception:
+        return str(value)
+
+
+def _is_blank(series: pd.Series) -> pd.Series:
+    return series.isna() | (series.astype(str).str.strip() == "")
+
+
+def _mask_for_filter(df: pd.DataFrame, flt: dict) -> pd.Series:
+    col = str(flt.get("column") or "").strip()
+    op = str(flt.get("op") or "").strip().lower()
+    val = flt.get("value")
+    if not col or not op:
+        return pd.Series([True] * len(df), index=df.index)
+    if col not in df.columns:
+        raise ValueError("Filter column not found: " + col)
+
+    s = df[col]
+
+    if op == "blank":
+        return _is_blank(s)
+    if op == "notblank":
+        return ~_is_blank(s)
+
+    if op in {"contains", "contains_cs", "regex", "startswith", "startswith_cs", "endswith", "endswith_cs"}:
+        text = s.astype(str)
+        q = "" if val is None else str(val)
+        if op == "regex":
+            return text.str.contains(q, case=False, na=False, regex=True)
+        if op == "contains_cs":
+            return text.str.contains(q, case=True, na=False, regex=False)
+        if op == "contains":
+            return text.str.contains(q, case=False, na=False, regex=False)
+        if op == "startswith_cs":
+            return text.str.startswith(q, na=False)
+        if op == "startswith":
+            return text.str.lower().str.startswith(q.lower(), na=False)
+        if op == "endswith_cs":
+            return text.str.endswith(q, na=False)
+        return text.str.lower().str.endswith(q.lower(), na=False)
+
+    if op in {"eq", "neq"}:
+        q = "" if val is None else str(val)
+        mask = s.astype(str) == q
+        return mask if op == "eq" else ~mask
+
+    if op in {"in", "notin"}:
+        items = [x.strip() for x in str(val or "").split(",") if x.strip()]
+        mask = s.astype(str).isin(items)
+        return mask if op == "in" else ~mask
+
+    if op in {"gt", "gte", "lt", "lte"}:
+        try:
+            q = float(str(val).strip())
+        except Exception:
+            raise ValueError("Numeric filter requires a numeric value for " + col)
+        sn = pd.to_numeric(s, errors="coerce")
+        if op == "gt":
+            return sn > q
+        if op == "gte":
+            return sn >= q
+        if op == "lt":
+            return sn < q
+        return sn <= q
+
+    if op in {"date_gt", "date_gte", "date_lt", "date_lte"}:
+        qd = pd.to_datetime(val, errors="coerce", utc=True)
+        sd = pd.to_datetime(s, errors="coerce", utc=True)
+        if pd.isna(qd):
+            raise ValueError("Date filter requires a parseable date value for " + col)
+        if op == "date_gt":
+            return sd > qd
+        if op == "date_gte":
+            return sd >= qd
+        if op == "date_lt":
+            return sd < qd
+        return sd <= qd
+
+    raise ValueError("Unsupported filter operator: " + op)
+
+
+def _apply_filter_groups(df: pd.DataFrame) -> pd.DataFrame:
+    groups = (TRANSFORM or {}).get("filter_groups")
+    if not isinstance(groups, list):
+        return df
+    groups = [g for g in groups if isinstance(g, dict)]
+    groups = [g for g in groups if isinstance(g.get("filters"), list) and g.get("filters")]
+    if not groups:
+        return df
+
+    keep = pd.Series([False] * len(df), index=df.index)
+    for g in groups:
+        flts = [f for f in (g.get("filters") or []) if isinstance(f, dict)]
+        if not flts:
+            continue
+        m = pd.Series([True] * len(df), index=df.index)
+        for f in flts:
+            m = m & _mask_for_filter(df, f)
+        keep = keep | m
+    return df[keep]
+
+
+def _apply_computed_columns(df: pd.DataFrame) -> pd.DataFrame:
+    computed = (TRANSFORM or {}).get("computed_columns")
+    if not isinstance(computed, list):
+        return df
+    for cc in computed:
+        if not isinstance(cc, dict):
+            continue
+        ctype = str(cc.get("type") or "").strip()
+        name = str(cc.get("name") or "").strip()
+        if not ctype or not name:
+            continue
+        if ctype == "concat":
+            cols = cc.get("columns") if isinstance(cc.get("columns"), list) else []
+            sep = str(cc.get("sep") or "")
+            parts = []
+            for c in cols:
+                if c not in df.columns:
+                    raise ValueError("Computed concat column missing input: " + str(c))
+                parts.append(df[c].astype(str).fillna(""))
+            df[name] = parts[0] if parts else ""
+            for p in parts[1:]:
+                df[name] = df[name] + sep + p
+        elif ctype == "coalesce":
+            cols = cc.get("columns") if isinstance(cc.get("columns"), list) else []
+            out = pd.Series([""] * len(df), index=df.index)
+            for c in cols:
+                if c not in df.columns:
+                    raise ValueError("Computed coalesce column missing input: " + str(c))
+                s = df[c]
+                mask = ~_is_blank(s)
+                out = out.where(~mask, s.astype(str))
+            df[name] = out
+        elif ctype == "date_format":
+            col = str(cc.get("column") or "").strip()
+            fmt = str(cc.get("format") or "%Y-%m-%d")
+            if col not in df.columns:
+                raise ValueError("Computed date_format missing input: " + col)
+            dt = pd.to_datetime(df[col], errors="coerce", utc=True)
+            df[name] = dt.dt.strftime(fmt).fillna("")
+        elif ctype == "bucket":
+            col = str(cc.get("column") or "").strip()
+            size = int(cc.get("size") or 10)
+            if col not in df.columns:
+                raise ValueError("Computed bucket missing input: " + col)
+            if size <= 0:
+                raise ValueError("Bucket size must be > 0 for " + name)
+            sn = pd.to_numeric(df[col], errors="coerce")
+            df[name] = (sn // size) * size
+        else:
+            raise ValueError("Unsupported computed column type: " + ctype)
+    return df
+
+
+def _build_base_dataframe() -> pd.DataFrame:
+    df = _dataset_df(DATASET_A)
+
+    for step in _join_steps():
+        if not step.get("enabled"):
+            continue
+        right = str(step.get("right") or "")
+        how = str(step.get("how") or "left").strip().lower()
+        if how not in {"left", "inner"}:
+            raise ValueError("Join type must be 'left' or 'inner'.")
+
+        # Resolve right dataset and prefix.
+        if right == "b":
+            ds_name = DATASET_B
+            prefix = "b__"
+        else:
+            ds_name = DATASET_C
+            prefix = "c__"
+        if not ds_name:
+            raise ValueError("Join enabled but dataset name is missing for Dataset " + right.upper())
+
+        keys = step.get("keys") if isinstance(step.get("keys"), list) else []
+        pairs = [(str(k.get("left") or "").strip(), str(k.get("right") or "").strip()) for k in keys if isinstance(k, dict)]
+        pairs = [(a, b) for a, b in pairs if a and b]
+        if not pairs:
+            raise ValueError("Join is enabled but join keys are missing for Dataset " + right.upper())
+
+        left_on = [a for a, _ in pairs]
+        for a in left_on:
+            if a not in df.columns:
+                raise ValueError("Join key not found in left dataframe for Dataset " + right.upper() + ": " + a)
+
+        df_r = _dataset_df(ds_name)
+        df_r = _prefix_columns(df_r, prefix)
+        right_on = [prefix + b for _, b in pairs]
+        for rkey, raw in zip(right_on, [b for _, b in pairs]):
+            if rkey not in df_r.columns:
+                raise ValueError("Join key not found in Dataset " + right.upper() + ": " + raw)
+
+        df = df.merge(df_r, how=how, left_on=left_on, right_on=right_on)
+
+    df = _apply_filter_groups(df)
+    df = _apply_computed_columns(df)
+    return df
+
+
+def _selected_columns() -> List[dict]:
+    cols = [{"name": c.get("name"), "label": c.get("label") or c.get("name")} for c in COLUMNS if isinstance(c, dict)]
+    # If nothing was selected (or if the generator is older), fall back to whatever the dataframe provides.
+    return [c for c in cols if c.get("name")]
+
+
+def _distinct_options(df: pd.DataFrame, col: str, *, max_items: int = 200) -> List[str]:
+    if col not in df.columns:
+        return []
+    s = df[col].dropna()
+    # Convert to string so the frontend can compare consistently.
+    vals = s.astype(str).dropna().unique().tolist()
+    vals = [v for v in vals if str(v).strip() != ""]
+    vals.sort()
+    return vals[:max_items]
+
+
+@app.route("/rows", methods=["GET"])
+def rows():
+    try:
+        df = _build_base_dataframe()
+
+        # Frontend (UI) filters from query params: ff_<column>=value
+        filter_cols = (UI or {}).get("frontend_filters") if isinstance((UI or {}).get("frontend_filters"), list) else []
+        # Apply any provided filter params (exact match on string form).
+        for col in filter_cols:
+            if not isinstance(col, str) or not col:
+                continue
+            qv = request.args.get("ff_" + col)
+            if qv is None or str(qv).strip() == "":
+                continue
+            if col not in df.columns:
+                continue
+            df = df[df[col].astype(str) == str(qv)]
+
+        cols = _selected_columns()
+        if cols:
+            missing = [c["name"] for c in cols if c["name"] not in df.columns]
+            if missing:
+                raise ValueError("Selected columns not found: " + ", ".join(missing))
+        else:
+            cols = [{"name": c, "label": c} for c in df.columns.tolist()]
+
+        names = [c["name"] for c in cols]
+
+        # Sort
+        sort_cfg = (TRANSFORM or {}).get("sort") or {}
+        sort_col = str(sort_cfg.get("column") or "").strip()
+        sort_dir = str(sort_cfg.get("direction") or "asc").strip().lower()
+        if sort_col:
+            if sort_col not in df.columns:
+                raise ValueError("Sort column not found: " + sort_col)
+            df = df.sort_values(by=[sort_col], ascending=(sort_dir != "desc"))
+
+        # Pagination
+        cfg_limit = int((TRANSFORM or {}).get("limit") or 2000)
+        cfg_limit = max(1, min(cfg_limit, 200000))
+        pagination = bool((UI or {}).get("pagination"))
+        page_size = int((UI or {}).get("page_size") or 200)
+        page_size = max(10, min(page_size, 5000))
+
+        req_offset = int(request.args.get("offset") or 0)
+        req_limit = int(request.args.get("limit") or page_size)
+        req_offset = max(0, req_offset)
+        req_limit = max(1, min(req_limit, page_size if pagination else cfg_limit))
+
+        total = int(len(df))
+        if pagination:
+            df_page = df.iloc[req_offset : req_offset + req_limit]
+        else:
+            df_page = df.head(cfg_limit)
+            req_offset = 0
+            req_limit = int(len(df_page))
+
+        df_page = df_page[names]
+
+        # Records
+        records = []
+        for _, r in df_page.iterrows():
+            rec = {}
+            for name in names:
+                rec[name] = _jsonable(r.get(name))
+            records.append(rec)
+
+        # Sidebar filter options (computed from the full filtered df, not just the page)
+        filter_options = {c: _distinct_options(df, c) for c in filter_cols if isinstance(c, str) and c}
+
+        # Chart data
+        chart_cfg = (UI or {}).get("chart") or {}
+        chart = None
+        if chart_cfg.get("enabled") and chart_cfg.get("column"):
+            cc = str(chart_cfg.get("column"))
+            top_n = int(chart_cfg.get("top_n") or 12)
+            top_n = max(1, min(top_n, 50))
+            if cc in df.columns:
+                s = df[cc].astype(str).fillna("").replace({"nan": ""})
+                counts = s[s != ""].value_counts().head(top_n)
+                chart = {"column": cc, "labels": counts.index.tolist(), "values": counts.values.tolist()}
+
+        # Two-tables sample
+        b_sample = None
+        if (UI or {}).get("template") == "two_tables" and DATASET_B:
+            try:
+                df_b = _dataset_df(DATASET_B).head(200)
+                b_cols = [{"name": c, "label": c} for c in df_b.columns.tolist()]
+                b_rows = []
+                for _, rr in df_b.iterrows():
+                    b_rows.append({c["name"]: _jsonable(rr.get(c["name"])) for c in b_cols})
+                b_sample = {"columns": b_cols, "rows": b_rows}
+            except Exception:
+                b_sample = None
+
+        join = (TRANSFORM or {}).get("join") or {}
+        join_enabled = bool((TRANSFORM or {}).get("join_enabled")) and bool(DATASET_B)
+        joins = _join_steps()
+
+        return jsonify(
+            {
+                "status": "ok",
+                "rows": records,
+                "total": total,
+                "offset": req_offset,
+                "limit": req_limit,
+                "meta": {
+                    "app_name": APP_NAME,
+                    "subtitle": SUBTITLE,
+                    "dataset_a": DATASET_A,
+                    "dataset_b": DATASET_B,
+                    "dataset_c": DATASET_C,
+                    "join_enabled": join_enabled,
+                    "join_how": str(join.get("how") or "left"),
+                    "joins": joins,
+                    "columns": cols,
+                    "ui": UI,
+                    "filter_options": filter_options,
+                    "chart": chart,
+                    "b_sample": b_sample,
+                },
+            }
+        )
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 500

@@ -1,0 +1,105 @@
+<div class="app" data-template="{{ (ui or {}).get('template') or 'table' }}" data-page-size="{{ (ui or {}).get('page_size') or 200 }}" data-pagination="{{ 1 if (ui or {}).get('pagination') else 0 }}">
+  <div class="app-header">
+    <div>
+      <h1 class="title">{{ app_name }}</h1>
+      {% if subtitle %}<div class="subtitle">{{ subtitle }}</div>{% endif %}
+    </div>
+    <div id="metaInfo" class="meta-info"></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <input id="searchInput" class="search" placeholder="Search..." />
+      <span class="hint">Search filters rows instantly.</span>
+      <span id="sourceInfo" class="source-info"></span>
+    </div>
+    <div class="toolbar-right">
+      {% if (ui or {}).get('pagination') %}
+      <div class="pager">
+        <button class="btn" id="prevBtn" type="button">Prev</button>
+        <button class="btn" id="nextBtn" type="button">Next</button>
+        <span id="pageInfo" class="pill neutral">0-0 of 0</span>
+      </div>
+      {% endif %}
+      <button class="btn" id="reloadBtn" type="button">Reload</button>
+      <span id="rowCount" class="pill neutral">0 rows</span>
+    </div>
+  </div>
+
+  {% set tpl = (ui or {}).get('template') or 'table' %}
+
+  {% if tpl == 'chart_table' %}
+    <div class="card" id="chartCard">
+      <div class="card-title">Chart</div>
+      <div class="chart-wrap">
+        <div id="chartEmpty" class="table-empty">No chart configured.</div>
+        <div id="chart" class="chart"></div>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if tpl == 'two_tables' %}
+    <div class="tabs2" role="tablist" aria-label="Tables">
+      <button class="tab2 active" type="button" data-tab="out">Output</button>
+      <button class="tab2" type="button" data-tab="b">Dataset B sample</button>
+    </div>
+  {% endif %}
+
+  <div class="layout layout-{{ tpl }}">
+    {% if tpl == 'sidebar_filters' %}
+      <aside class="side">
+        <div class="side-title">Filters</div>
+        <div id="sideFilters" class="side-filters"></div>
+        <button class="btn" id="clearSideFilters" type="button">Clear</button>
+      </aside>
+    {% endif %}
+
+    <div class="main">
+      <div class="card {% if tpl == 'two_tables' %}tabpanel active{% endif %}" data-tabpanel="out">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead id="tableHead"></thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      {% if tpl == 'two_tables' %}
+        <div class="card tabpanel" data-tabpanel="b">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead id="bTableHead"></thead>
+              <tbody id="bTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    {% if tpl == 'master_detail' %}
+      <aside class="detail">
+        <div class="detail-title">Details</div>
+        <div id="detailPaneEmpty" class="table-empty">Click a row to see details.</div>
+        <table class="kv" id="detailPane"></table>
+      </aside>
+    {% endif %}
+  </div>
+</div>
+
+<div id="overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div id="detailTitle" class="modal-title">Row details</div>
+        <div id="detailSubtitle" class="modal-subtitle"></div>
+      </div>
+      <button class="btn" id="detailClose" type="button">X</button>
+    </div>
+
+    <div class="modal-body">
+      <table class="kv" id="detailTable"></table>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>

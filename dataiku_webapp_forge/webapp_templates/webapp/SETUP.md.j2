@@ -1,0 +1,45 @@
+# {{ app_name }} WebApp Setup (Dataiku Standard WebApp)
+
+This folder contains a **Dataiku Standard WebApp** using:
+
+- `index.html`: **HTML body only**
+- `style.css`, `script.js`
+- `backend.py`: Flask backend that reads Dataiku dataset(s) with pandas
+
+## Datasets
+
+1) **Dataset A (required)**
+   - Name: `{{ dataiku.get('dataset_a') or 'dataset_a' }}` (default in `backend.py`)
+   - Purpose: primary table shown in the UI
+
+2) **Dataset B (optional)**
+   - Name: `{{ dataiku.get('dataset_b') or '(not set)' }}`
+   - Used only if the generated config has join enabled.
+
+3) **Dataset C (advanced, optional)**
+   - Name: `{{ dataiku.get('dataset_c') or '(not set)' }}`
+   - Used only if the generated config enables the second join step.
+
+### Join notes (if enabled)
+
+- Dataset B columns are prefixed in-memory as `b__<column>` to avoid name collisions.
+- Dataset C columns are prefixed in-memory as `c__<column>` to avoid name collisions.
+- Joins are performed in `backend.py` with sequential `pandas.merge` steps.
+
+## WebApp Setup Steps
+
+1) Create a new WebApp in Dataiku: **Standard WebApp**.
+2) Add these files from this folder:
+   - `index.html` (body only)
+   - `style.css`
+   - `script.js`
+   - `backend.py`
+3) If your dataset names differ, update these constants in `backend.py`:
+   - `DATASET_A = ...`
+   - `DATASET_B = ...`
+4) Configure the WebApp code environment to include dependencies from `requirements.txt` (at minimum: `pandas`).
+
+## Notes
+
+- `/rows` returns JSON with a **row limit** (configured in the generator).
+- Filters run in the backend before rows are returned to the browser.

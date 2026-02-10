@@ -1,0 +1,10 @@
+# Flask instance folder (projects, uploads, presets) - local state
+instance/
+
+# macOS noise
+.DS_Store
+**/.DS_Store
+
+# Python build artifacts
+**/__pycache__/
+*.pyc

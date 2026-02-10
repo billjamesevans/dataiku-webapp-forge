@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="card">
+    <div class="card-header">
+      <h2>UI</h2>
+      <div class="muted">Choose the exported webapp template and UX options.</div>
+    </div>
+    <div class="card-body">
+      <form method="post">
+        <div class="grid2">
+          <div>
+            <label>App Name</label>
+            <input name="app_name" value="{{ (project.data.get('app') or {}).get('name') or '' }}" />
+          </div>
+          <div>
+            <label>Subtitle (optional)</label>
+            <input name="subtitle" value="{{ (project.data.get('app') or {}).get('subtitle') or '' }}" />
+          </div>
+        </div>
+
+        <div class="grid2" style="margin-top:12px;">
+          <div>
+            <label>Template</label>
+            <select name="template">
+              {% set tpl = ui.get('template') or 'table' %}
+              <option value="table" {% if tpl=='table' %}selected{% endif %}>Simple table</option>
+              <option value="sidebar_filters" {% if tpl=='sidebar_filters' %}selected{% endif %}>Table + sidebar filters</option>
+              <option value="master_detail" {% if tpl=='master_detail' %}selected{% endif %}>Master-detail</option>
+              <option value="chart_table" {% if tpl=='chart_table' %}selected{% endif %}>Chart + table</option>
+              <option value="two_tables" {% if tpl=='two_tables' %}selected{% endif %}>Two tables</option>
+            </select>
+            <div class="hint">Pick the layout that best matches what your team typically builds.</div>
+          </div>
+          <div>
+            <label class="check" style="margin-top:28px;">
+              <input type="checkbox" name="row_details" {% if ui.get('row_details') %}checked{% endif %} />
+              <span>Enable row details (click a row)</span>
+            </label>
+            <div class="hint">Used by Simple table and Sidebar filters templates.</div>
+          </div>
+        </div>
+
+        <div class="grid2" style="margin-top:12px;">
+          <div>
+            <label class="check">
+              <input type="checkbox" name="pagination" {% if ui.get('pagination') %}checked{% endif %} />
+              <span>Enable pagination (recommended for large datasets)</span>
+            </label>
+            <div class="hint">Generated backend supports `offset`/`limit` and returns totals.</div>
+          </div>
+          <div>
+            <label>Page size</label>
+            <input name="page_size" value="{{ ui.get('page_size', 200) }}" />
+            <div class="hint">Used only when pagination is enabled.</div>
+          </div>
+        </div>
+
+        <div class="grid2" style="margin-top:12px;">
+          <div>
+            <label>Sidebar / UI Filters (comma-separated column names)</label>
+            <input name="frontend_filters" value="{{ (ui.get('frontend_filters') or [])|join(', ') }}" placeholder="e.g. planner_cd, status" />
+            <div class="hint">The generated backend will return distinct values (top 200) to populate dropdowns.</div>
+          </div>
+          <div>
+            <label>Chart Column (for Chart + table template)</label>
+            {% set chart = ui.get('chart') or {} %}
+            <input name="chart_column" value="{{ chart.get('column') or '' }}" placeholder="e.g. planner_cd" />
+            <div class="hint">Counts will be computed in the backend (top N).</div>
+          </div>
+        </div>
+
+        <div class="grid2" style="margin-top:12px;">
+          <div>
+            <label class="check">
+              <input type="checkbox" name="chart_enabled" {% if (ui.get('chart') or {}).get('enabled') %}checked{% endif %} />
+              <span>Enable chart</span>
+            </label>
+          </div>
+          <div>
+            <label>Chart top N</label>
+            <input name="chart_top_n" value="{{ (ui.get('chart') or {}).get('top_n', 12) }}" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-primary" type="submit">Save & Continue</button>
+        </div>
+      </form>
+    </div>
+  </section>
+{% endblock %}

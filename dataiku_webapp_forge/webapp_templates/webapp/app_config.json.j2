@@ -1,0 +1,8 @@
+{{
+  {
+    "app": project.get("app") or {},
+    "dataiku": project.get("dataiku") or {},
+    "transform": project.get("transform") or {},
+    "ui": project.get("ui") or {},
+  } | tojson(indent=2)
+}}
