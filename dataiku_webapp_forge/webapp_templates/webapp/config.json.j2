@@ -1,9 +1,10 @@
 {{
   {
-    "app": project.get("app") or {},
+    "app": {"name": app_name, "subtitle": subtitle or ""},
     "dataiku": project.get("dataiku") or {},
     "transform": project.get("transform") or {},
     "ui": project.get("ui") or {},
-    "columns_selected": columns_selected or [],
+    "columns": columns_selected or [],
   } | tojson(indent=2)
 }}
+

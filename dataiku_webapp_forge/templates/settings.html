@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="card">
+    <div class="card-header">
+      <h2>Settings</h2>
+      <div class="muted">Rename, tag, pin, and maintenance actions.</div>
+    </div>
+    <div class="card-body">
+      {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+      <form method="post">
+        <div class="grid2">
+          <div>
+            <label>Project name</label>
+            <input name="app_name" value="{{ (project.data.get('app') or {}).get('name') or '' }}" />
+          </div>
+          <div>
+            <label>Subtitle (optional)</label>
+            <input name="subtitle" value="{{ (project.data.get('app') or {}).get('subtitle') or '' }}" />
+          </div>
+        </div>
+
+        <div class="grid2" style="margin-top:12px;">
+          <div>
+            <label>Tags (comma-separated)</label>
+            {% set meta = project.data.get('meta') or {} %}
+            <input name="tags" value="{{ (meta.get('tags') or [])|join(', ') }}" placeholder="e.g. finance, demo, v1" />
+            <div class="hint">Tags are used for search and filtering on the Projects page.</div>
+          </div>
+          <div>
+            <label class="check" style="margin-top:28px;">
+              <input type="checkbox" name="pinned" {% if meta.get('pinned') %}checked{% endif %} />
+              <span>Pin this project</span>
+            </label>
+            <div class="hint">Pinned projects appear first.</div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-primary" type="submit">Save settings</button>
+        </div>
+      </form>
+
+      <div class="menu-sep" style="margin: 16px 0;"></div>
+
+      <h3 class="section-title">Maintenance</h3>
+      <div class="panel">
+        <div class="muted">
+          Clean uploads deletes CSV files and removes sample rows/paths from this project's saved state.
+          It keeps column names so you can still export code, but Analyze previews will require re-uploading CSVs.
+        </div>
+        <div class="actions" style="justify-content:flex-start;">
+          <form method="post" style="display:inline;" onsubmit="return confirm('Clean uploads for this project? CSV files and samples will be removed.');">
+            <input type="hidden" name="action" value="clean_uploads" />
+            <button class="btn" type="submit">Clean uploads</button>
+          </form>
+          <a class="btn" href="{{ url_for('project_export_zip', project_id=project.id) }}">Download zip</a>
+          <form method="post" action="{{ url_for('project_duplicate', project_id=project.id) }}" style="display:inline;">
+            <button class="btn" type="submit">Duplicate project</button>
+          </form>
+          <form method="post" action="{{ url_for('project_delete', project_id=project.id) }}" style="display:inline;" onsubmit="return confirm('Delete this project? This cannot be undone.');">
+            <button class="btn btn-danger" type="submit">Delete project</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+

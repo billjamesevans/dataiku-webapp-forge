@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ app_name }} (Preview)</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      body { padding: 18px; }
+    </style>
+  </head>
+  <body>
+    {% include "webapp/index.html.j2" %}
+
+    <script>
+      // Minimal Dataiku shim for local previews.
+      function getWebAppBackendUrl(path) { return path || ''; }
+    </script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
+

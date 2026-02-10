@@ -44,6 +44,10 @@ def create_project(instance_dir: str) -> Project:
         "id": pid,
         "created_at_unix": now,
         "updated_at_unix": now,
+        "meta": {
+            "tags": [],
+            "pinned": False,
+        },
         "app": {
             "name": "Simple Dataiku WebApp",
             "subtitle": "",
@@ -134,6 +138,18 @@ def normalize_project_data(data: Dict[str, Any]) -> Dict[str, Any]:
     data.setdefault("id", uuid.uuid4().hex)
     data.setdefault("created_at_unix", now)
     data.setdefault("updated_at_unix", now)
+
+    meta = data.setdefault("meta", {})
+    if not isinstance(meta, dict):
+        meta = {}
+    # Tags are freeform, used for filtering/search.
+    tags = meta.get("tags")
+    if not isinstance(tags, list):
+        tags = []
+    meta["tags"] = [str(t).strip() for t in tags if str(t).strip()]
+    meta.setdefault("pinned", False)
+    meta["pinned"] = bool(meta.get("pinned"))
+    data["meta"] = meta
 
     app = data.setdefault("app", {})
     app.setdefault("name", "Simple Dataiku WebApp")

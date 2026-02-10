@@ -5,6 +5,7 @@ This folder contains a **Dataiku Standard WebApp** using:
 - `index.html`: **HTML body only**
 - `style.css`, `script.js`
 - `backend.py`: Flask backend that reads Dataiku dataset(s) with pandas
+- `config.json`: generated config (datasets, joins, filters, columns, UI)
 
 ## Datasets
 
@@ -34,9 +35,11 @@ This folder contains a **Dataiku Standard WebApp** using:
    - `style.css`
    - `script.js`
    - `backend.py`
-3) If your dataset names differ, update these constants in `backend.py`:
-   - `DATASET_A = ...`
-   - `DATASET_B = ...`
+   - `config.json`
+3) If your dataset names differ, update them in `config.json`:
+   - `dataiku.dataset_a`
+   - `dataiku.dataset_b`
+   - `dataiku.dataset_c`
 4) Configure the WebApp code environment to include dependencies from `requirements.txt` (at minimum: `pandas`).
 
 ## Notes

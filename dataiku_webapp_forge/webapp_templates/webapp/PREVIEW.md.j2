@@ -1,0 +1,37 @@
+# Local Preview (Optional)
+
+Dataiku Standard WebApps run inside Dataiku, but you can smoke test the **frontend + transforms** locally.
+
+This preview runs a small Flask server that serves:
+- `preview.html`
+- `/rows` (CSV-backed endpoint shaped like the Dataiku backend)
+
+## Quick Start
+
+1) Put CSV files next to these exported files:
+- `sample_a.csv` (required)
+- `sample_b.csv` (optional, if you enabled join to B)
+- `sample_c.csv` (optional, if you enabled join to C)
+
+2) Install preview dependencies:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r preview_requirements.txt
+```
+
+3) Run:
+
+```bash
+python3 preview_server.py
+```
+
+Then open:
+- http://127.0.0.1:5005
+
+## Notes
+
+- This preview uses `config.json` and your CSVs. It does **not** use the Dataiku Python API.
+- If the real Dataiku webapp times out, reduce Transform "Row Limit" or enable pagination.
+

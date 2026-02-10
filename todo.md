@@ -19,10 +19,10 @@
 - [x] Make export diff-friendly by default (deterministic JSON output).
 
 ## Project Management
-- Add project rename, tags, search, pin favorites, sort by last updated, and “clean uploads” action.
-- Add duplicate at the “template/preset” level (not just whole-project).
+- [x] Add project rename, tags, search, pin favorites, sort by last updated, and “clean uploads” action.
+- [x] Add duplicate at the “template/preset” level (not just whole-project).
 
 ## Dataiku Experience
-- Add a “Dataiku runtime preview pack”: small local HTML runner that mimics Dataiku environment to smoke test frontend+backend.
-- Generate a concise config block (datasets/join/filters/columns) and make `backend.py` load from it to reduce regeneration churn.
-- Add “expected dataset schema” export for Dataiku docs (columns, types guessed, join keys, filter columns).
+- [x] Add a “Dataiku runtime preview pack”: small local HTML runner that mimics Dataiku environment to smoke test frontend+backend.
+- [x] Generate a concise config block (datasets/join/filters/columns) and make `backend.py` load from it to reduce regeneration churn.
+- [x] Add “expected dataset schema” export for Dataiku docs (columns, types guessed, join keys, filter columns).

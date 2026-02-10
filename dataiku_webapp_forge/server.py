@@ -1,5 +1,6 @@
 import io
 import os
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from flask import Flask, abort, redirect, render_template, request, send_file, url_for
@@ -35,6 +36,49 @@ def _get_project(app: Flask, project_id: str) -> Project:
         return load_project(app.instance_path, project_id)
     except Exception:
         abort(404)
+
+def _project_display_name(p: Project) -> str:
+    return str(((p.data.get("app") or {}).get("name")) or "Untitled")
+
+
+def _project_tags(p: Project) -> List[str]:
+    meta = p.data.get("meta") or {}
+    tags = meta.get("tags") if isinstance(meta, dict) else []
+    if not isinstance(tags, list):
+        return []
+    return [str(t).strip() for t in tags if str(t).strip()]
+
+
+def _project_pinned(p: Project) -> bool:
+    meta = p.data.get("meta") or {}
+    return bool(isinstance(meta, dict) and meta.get("pinned"))
+
+
+def _clean_uploads(proj: Project) -> None:
+    """
+    Remove uploaded CSV files and strip sensitive samples/paths, but keep schema column names.
+    This keeps the project usable for export, but Analyze preview will require re-uploading.
+    """
+    uploads_dir = os.path.join(proj.root_dir, "uploads")
+    if os.path.isdir(uploads_dir):
+        for name in os.listdir(uploads_dir):
+            path = os.path.join(uploads_dir, name)
+            try:
+                if os.path.isfile(path):
+                    os.remove(path)
+            except Exception:
+                pass
+
+    csv = proj.data.get("csv") if isinstance(proj.data.get("csv"), dict) else {}
+    for key in ("a", "b", "c"):
+        info = csv.get(key)
+        if not isinstance(info, dict):
+            continue
+        info["path"] = ""
+        # Samples can contain sensitive data. Keep only schema (columns).
+        info["sample_rows"] = []
+        csv[key] = info
+    proj.data["csv"] = csv
 
 
 def _sync_transform_columns(project: Project) -> None:
@@ -162,12 +206,69 @@ def create_app() -> Flask:
 
     @app.get("/")
     def index():
+        q = (request.args.get("q") or "").strip().lower()
+        tag = (request.args.get("tag") or "").strip().lower()
+
         projects = list_projects(app.instance_path)
-        return render_template("index.html", projects=projects)
+        for p in projects:
+            try:
+                ts = int(p.data.get("updated_at_unix") or 0)
+                p.data["_updated_at_human"] = time.strftime("%Y-%m-%d %H:%M", time.localtime(ts)) if ts else ""
+            except Exception:
+                p.data["_updated_at_human"] = ""
+        # Sort: pinned first, then most recently updated.
+        projects.sort(
+            key=lambda p: (
+                0 if _project_pinned(p) else 1,
+                -int(p.data.get("updated_at_unix") or 0),
+                _project_display_name(p).lower(),
+            )
+        )
+
+        if q or tag:
+            filtered: List[Project] = []
+            for p in projects:
+                name = _project_display_name(p).lower()
+                pid = str(p.id or "").lower()
+                tags = [t.lower() for t in _project_tags(p)]
+                ok = True
+                if tag and tag not in tags:
+                    ok = False
+                if q and ok:
+                    ok = (q in name) or (q in pid) or any(q in t for t in tags)
+                if ok:
+                    filtered.append(p)
+            projects = filtered
+
+        presets = list_presets(app.instance_path)
+        return render_template("index.html", projects=projects, presets=presets, q=q, tag=tag)
 
     @app.post("/projects/new")
     def projects_new():
         proj = create_project(app.instance_path)
+        return redirect(url_for("project_sources", project_id=proj.id))
+
+    @app.post("/projects/new_from_preset")
+    def projects_new_from_preset():
+        preset_id = (request.form.get("preset_id") or "").strip()
+        if not preset_id:
+            return redirect(url_for("index"))
+        proj = create_project(app.instance_path)
+        try:
+            preset = load_preset(app.instance_path, preset_id)
+            preset_transform = preset.get("transform") if isinstance(preset.get("transform"), dict) else {}
+            preset_ui = preset.get("ui") if isinstance(preset.get("ui"), dict) else {}
+            proj.data["transform"] = {**(proj.data.get("transform") or {}), **preset_transform}
+            proj.data["ui"] = {**(proj.data.get("ui") or {}), **preset_ui}
+            # Ensure schema-dependent bits are aligned.
+            _sync_transform_columns(proj)
+            _maybe_seed_join_keys(proj)
+            # Mark the project name so it's obvious it came from a preset.
+            pname = str(preset.get("name") or "Preset").strip()
+            proj.data.setdefault("app", {})["name"] = f"{pname} WebApp"
+        except Exception:
+            pass
+        save_project(app.instance_path, proj)
         return redirect(url_for("project_sources", project_id=proj.id))
 
     @app.post("/projects/<project_id>/delete")
@@ -183,6 +284,46 @@ def create_app() -> Flask:
     @app.get("/projects/<project_id>")
     def project_root(project_id: str):
         return redirect(url_for("project_sources", project_id=project_id))
+
+    @app.route("/projects/<project_id>/settings", methods=["GET", "POST"])
+    def project_settings(project_id: str):
+        proj = _get_project(app, project_id)
+        error = ""
+        if request.method == "POST":
+            action = (request.form.get("action") or "").strip()
+
+            if action == "clean_uploads":
+                _clean_uploads(proj)
+                # Disable joins if we no longer have data to validate/preview.
+                tr = proj.data.setdefault("transform", {})
+                tr["join_enabled"] = False
+                if isinstance(tr.get("joins"), list):
+                    for s in tr["joins"]:
+                        if isinstance(s, dict):
+                            s["enabled"] = False
+                save_project(app.instance_path, proj)
+                return redirect(url_for("project_settings", project_id=project_id))
+
+            # Update fields
+            app_name = (request.form.get("app_name") or "").strip()
+            subtitle = (request.form.get("subtitle") or "").strip()
+            tags_raw = (request.form.get("tags") or "").strip()
+            pinned = request.form.get("pinned") == "on"
+
+            if not app_name:
+                error = "Project name is required."
+            else:
+                proj.data.setdefault("app", {})["name"] = app_name
+                proj.data.setdefault("app", {})["subtitle"] = subtitle
+                meta = proj.data.get("meta") if isinstance(proj.data.get("meta"), dict) else {}
+                tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
+                meta["tags"] = tags
+                meta["pinned"] = bool(pinned)
+                proj.data["meta"] = meta
+                save_project(app.instance_path, proj)
+                return redirect(url_for("project_settings", project_id=project_id))
+
+        return render_template("settings.html", project=proj, error=error, active_tab="settings")
 
     @app.route("/projects/<project_id>/sources", methods=["GET", "POST"])
     def project_sources(project_id: str):

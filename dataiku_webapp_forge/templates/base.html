@@ -39,6 +39,7 @@
               <a class="tab {% if active_tab=='transform' %}active{% endif %}" href="{{ url_for('project_transform', project_id=project.id) }}">Transform</a>
               <a class="tab {% if active_tab=='ui' %}active{% endif %}" href="{{ url_for('project_ui', project_id=project.id) }}">UI</a>
               <a class="tab {% if active_tab=='export' %}active{% endif %}" href="{{ url_for('project_export_page', project_id=project.id) }}">Export</a>
+              <a class="tab {% if active_tab=='settings' %}active{% endif %}" href="{{ url_for('project_settings', project_id=project.id) }}">Settings</a>
             </nav>
           </div>
         </div>

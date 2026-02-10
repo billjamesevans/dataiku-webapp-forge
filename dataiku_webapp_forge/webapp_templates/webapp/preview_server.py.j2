@@ -1,0 +1,429 @@
+import json
+import os
+from datetime import datetime
+
+import pandas as pd
+from flask import Flask, jsonify, request, send_from_directory
+
+APP_DIR = os.path.abspath(os.path.dirname(__file__))
+
+
+def _load_config() -> dict:
+    for fname in ("config.json", "app_config.json"):
+        path = os.path.join(APP_DIR, fname)
+        if os.path.isfile(path):
+            with open(path, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            if isinstance(cfg, dict):
+                if "columns" not in cfg and "columns_selected" in cfg:
+                    cfg["columns"] = cfg.get("columns_selected") or []
+                return cfg
+    return {}
+
+
+CFG = _load_config()
+APP = CFG.get("app") if isinstance(CFG.get("app"), dict) else {}
+TRANSFORM = CFG.get("transform") if isinstance(CFG.get("transform"), dict) else {}
+UI = CFG.get("ui") if isinstance(CFG.get("ui"), dict) else {}
+COLUMNS = CFG.get("columns") if isinstance(CFG.get("columns"), list) else []
+
+
+def _jsonable(value):
+    if value is None:
+        return None
+    try:
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+    if isinstance(value, (pd.Timestamp, datetime)):
+        try:
+            return value.isoformat()
+        except Exception:
+            return str(value)
+    try:
+        json.dumps(value)
+        return value
+    except Exception:
+        return str(value)
+
+
+def _is_blank(series: pd.Series) -> pd.Series:
+    return series.isna() | (series.astype(str).str.strip() == "")
+
+
+def _mask_for_filter(df: pd.DataFrame, flt: dict) -> pd.Series:
+    col = str(flt.get("column") or "").strip()
+    op = str(flt.get("op") or "").strip().lower()
+    val = flt.get("value")
+    if not col or not op:
+        return pd.Series([True] * len(df), index=df.index)
+    if col not in df.columns:
+        return pd.Series([True] * len(df), index=df.index)
+
+    s = df[col]
+    if op == "blank":
+        return _is_blank(s)
+    if op == "notblank":
+        return ~_is_blank(s)
+
+    if op in {"contains", "contains_cs", "regex", "startswith", "startswith_cs", "endswith", "endswith_cs"}:
+        text = s.astype(str)
+        q = "" if val is None else str(val)
+        if op == "regex":
+            return text.str.contains(q, case=False, na=False, regex=True)
+        if op == "contains_cs":
+            return text.str.contains(q, case=True, na=False, regex=False)
+        if op == "contains":
+            return text.str.contains(q, case=False, na=False, regex=False)
+        if op == "startswith_cs":
+            return text.str.startswith(q, na=False)
+        if op == "startswith":
+            return text.str.lower().str.startswith(q.lower(), na=False)
+        if op == "endswith_cs":
+            return text.str.endswith(q, na=False)
+        return text.str.lower().str.endswith(q.lower(), na=False)
+
+    if op in {"eq", "neq"}:
+        q = "" if val is None else str(val)
+        mask = s.astype(str) == q
+        return mask if op == "eq" else ~mask
+
+    if op in {"in", "notin"}:
+        items = [x.strip() for x in str(val or "").split(",") if x.strip()]
+        mask = s.astype(str).isin(items)
+        return mask if op == "in" else ~mask
+
+    if op in {"gt", "gte", "lt", "lte"}:
+        try:
+            q = float(str(val).strip())
+        except Exception:
+            return pd.Series([True] * len(df), index=df.index)
+        sn = pd.to_numeric(s, errors="coerce")
+        if op == "gt":
+            return sn > q
+        if op == "gte":
+            return sn >= q
+        if op == "lt":
+            return sn < q
+        return sn <= q
+
+    if op in {"date_gt", "date_gte", "date_lt", "date_lte"}:
+        qd = pd.to_datetime(val, errors="coerce", utc=True)
+        sd = pd.to_datetime(s, errors="coerce", utc=True)
+        if pd.isna(qd):
+            return pd.Series([True] * len(df), index=df.index)
+        if op == "date_gt":
+            return sd > qd
+        if op == "date_gte":
+            return sd >= qd
+        if op == "date_lt":
+            return sd < qd
+        return sd <= qd
+
+    return pd.Series([True] * len(df), index=df.index)
+
+
+def _apply_filter_groups(df: pd.DataFrame) -> pd.DataFrame:
+    groups = (TRANSFORM or {}).get("filter_groups")
+    if not isinstance(groups, list):
+        return df
+    groups = [g for g in groups if isinstance(g, dict)]
+    groups = [g for g in groups if isinstance(g.get("filters"), list) and g.get("filters")]
+    if not groups:
+        return df
+    keep = pd.Series([False] * len(df), index=df.index)
+    for g in groups:
+        flts = [f for f in (g.get("filters") or []) if isinstance(f, dict)]
+        if not flts:
+            continue
+        m = pd.Series([True] * len(df), index=df.index)
+        for f in flts:
+            m = m & _mask_for_filter(df, f)
+        keep = keep | m
+    return df[keep]
+
+
+def _apply_computed_columns(df: pd.DataFrame) -> pd.DataFrame:
+    computed = (TRANSFORM or {}).get("computed_columns")
+    if not isinstance(computed, list):
+        return df
+    for cc in computed:
+        if not isinstance(cc, dict):
+            continue
+        ctype = str(cc.get("type") or "").strip()
+        name = str(cc.get("name") or "").strip()
+        if not ctype or not name:
+            continue
+        if ctype == "concat":
+            cols = cc.get("columns") if isinstance(cc.get("columns"), list) else []
+            sep = str(cc.get("sep") or "")
+            parts = []
+            for c in cols:
+                if c in df.columns:
+                    parts.append(df[c].astype(str).fillna(""))
+            df[name] = parts[0] if parts else ""
+            for p in parts[1:]:
+                df[name] = df[name] + sep + p
+        elif ctype == "coalesce":
+            cols = cc.get("columns") if isinstance(cc.get("columns"), list) else []
+            out = pd.Series([""] * len(df), index=df.index)
+            for c in cols:
+                if c not in df.columns:
+                    continue
+                s = df[c]
+                mask = ~_is_blank(s)
+                out = out.where(~mask, s.astype(str))
+            df[name] = out
+        elif ctype == "date_format":
+            col = str(cc.get("column") or "").strip()
+            fmt = str(cc.get("format") or "%Y-%m-%d")
+            if col not in df.columns:
+                df[name] = ""
+            else:
+                dt = pd.to_datetime(df[col], errors="coerce", utc=True)
+                df[name] = dt.dt.strftime(fmt).fillna("")
+        elif ctype == "bucket":
+            col = str(cc.get("column") or "").strip()
+            size = int(cc.get("size") or 10)
+            if col not in df.columns or size <= 0:
+                df[name] = ""
+            else:
+                sn = pd.to_numeric(df[col], errors="coerce")
+                df[name] = (sn // size) * size
+    return df
+
+
+def _join_steps() -> list:
+    joins = (TRANSFORM or {}).get("joins")
+    if isinstance(joins, list) and joins:
+        out = []
+        for s in joins:
+            if not isinstance(s, dict):
+                continue
+            r = str(s.get("right") or "").strip().lower()
+            if r not in {"b", "c"}:
+                continue
+            out.append(
+                {
+                    "right": r,
+                    "enabled": bool(s.get("enabled")),
+                    "how": str(s.get("how") or "left").strip().lower(),
+                    "keys": s.get("keys") if isinstance(s.get("keys"), list) else [],
+                }
+            )
+        by = {s["right"]: s for s in out if isinstance(s, dict) and s.get("right")}
+        res = []
+        if "b" in by:
+            res.append(by["b"])
+        if "c" in by:
+            res.append(by["c"])
+        return res
+    return []
+
+
+def _prefix_columns(df: pd.DataFrame, prefix: str) -> pd.DataFrame:
+    return df.rename(columns={c: prefix + c for c in df.columns})
+
+
+def _csv_df(fname: str) -> pd.DataFrame:
+    path = os.path.join(APP_DIR, fname)
+    if not os.path.isfile(path):
+        raise ValueError("Missing CSV file: " + fname)
+    return pd.read_csv(path, dtype=str, keep_default_na=False, na_values=[])
+
+
+def _build_df() -> pd.DataFrame:
+    df = _csv_df("sample_a.csv")
+    for step in _join_steps():
+        if not step.get("enabled"):
+            continue
+        right = str(step.get("right") or "")
+        how = str(step.get("how") or "left").strip().lower()
+        prefix = "b__" if right == "b" else "c__"
+        df_r = _csv_df("sample_b.csv" if right == "b" else "sample_c.csv")
+        df_r = _prefix_columns(df_r, prefix)
+        keys = step.get("keys") if isinstance(step.get("keys"), list) else []
+        pairs = [(str(k.get("left") or "").strip(), str(k.get("right") or "").strip()) for k in keys if isinstance(k, dict)]
+        pairs = [(a, b) for a, b in pairs if a and b]
+        left_on = [a for a, _ in pairs]
+        right_on = [prefix + b for _, b in pairs]
+        df = df.merge(df_r, how=how, left_on=left_on, right_on=right_on)
+    df = _apply_filter_groups(df)
+    df = _apply_computed_columns(df)
+    return df
+
+
+app = Flask(__name__)
+
+
+@app.get("/")
+def home():
+    return send_from_directory(APP_DIR, "preview.html")
+
+
+@app.get("/style.css")
+def style():
+    return send_from_directory(APP_DIR, "style.css")
+
+
+@app.get("/script.js")
+def script():
+    return send_from_directory(APP_DIR, "script.js")
+
+
+@app.get("/rows")
+def rows():
+    df = _build_df()
+
+    # Frontend (UI) filters from query params: ff_<column>=value
+    filter_cols = (UI or {}).get("frontend_filters") if isinstance((UI or {}).get("frontend_filters"), list) else []
+    for col in filter_cols:
+        if not isinstance(col, str) or not col:
+            continue
+        qv = request.args.get("ff_" + col)
+        if qv is None or str(qv).strip() == "":
+            continue
+        if col not in df.columns:
+            continue
+        df = df[df[col].astype(str) == str(qv)]
+
+    cols = [{"name": c.get("name"), "label": c.get("label") or c.get("name")} for c in COLUMNS if isinstance(c, dict)]
+    names = [c["name"] for c in cols if c.get("name")]
+    if names:
+        keep = [n for n in names if n in df.columns]
+        df = df[keep]
+    else:
+        cols = [{"name": c, "label": c} for c in df.columns.tolist()]
+        names = [c["name"] for c in cols]
+
+    # Sort
+    sort_cfg = (TRANSFORM or {}).get("sort") or {}
+    sort_col = str(sort_cfg.get("column") or "").strip()
+    sort_dir = str(sort_cfg.get("direction") or "asc").strip().lower()
+    if sort_col and sort_col in df.columns:
+        df = df.sort_values(by=[sort_col], ascending=(sort_dir != "desc"))
+
+    # Pagination (mirrors generated backend behavior)
+    cfg_limit = int((TRANSFORM or {}).get("limit") or 2000)
+    cfg_limit = max(1, min(cfg_limit, 200000))
+    pagination = bool((UI or {}).get("pagination"))
+    page_size = int((UI or {}).get("page_size") or 200)
+    page_size = max(10, min(page_size, 5000))
+
+    req_offset = int(request.args.get("offset") or 0)
+    req_limit = int(request.args.get("limit") or page_size)
+    req_offset = max(0, req_offset)
+    req_limit = max(1, min(req_limit, page_size if pagination else cfg_limit))
+
+    total = int(len(df))
+    if pagination:
+        df_page = df.iloc[req_offset : req_offset + req_limit]
+    else:
+        df_page = df.head(cfg_limit)
+        req_offset = 0
+        req_limit = int(len(df_page))
+
+    records = []
+    for _, r in df_page.iterrows():
+        records.append({k: _jsonable(r.get(k)) for k in names})
+
+    # Chart (supports bar/hist/line/scatter like the generated backend)
+    chart_cfg = (UI or {}).get("chart") or {}
+    chart = None
+    if chart_cfg.get("enabled"):
+        ctype = str(chart_cfg.get("type") or "bar").strip().lower()
+        xcol = str(chart_cfg.get("x_column") or "").strip() or str(chart_cfg.get("column") or "").strip()
+        ycol = str(chart_cfg.get("y_column") or "").strip()
+
+        if ctype == "bar":
+            top_n = int(chart_cfg.get("top_n") or 12)
+            top_n = max(1, min(top_n, 50))
+            if xcol and xcol in df.columns:
+                s = df[xcol].astype(str).fillna("").replace({"nan": ""})
+                counts = s[s != ""].value_counts().head(top_n)
+                chart = {"type": "bar", "column": xcol, "labels": counts.index.tolist(), "values": counts.values.tolist()}
+
+        elif ctype == "hist":
+            bins = int(chart_cfg.get("bins") or 16)
+            bins = max(3, min(bins, 80))
+            if xcol and xcol in df.columns:
+                sn = pd.to_numeric(df[xcol], errors="coerce").dropna()
+                if len(sn):
+                    cut, _edges = pd.cut(sn, bins=bins, retbins=True, include_lowest=True, duplicates="drop")
+                    vc = cut.value_counts().sort_index()
+                    labels = [str(i) for i in vc.index.astype(str).tolist()]
+                    values = [int(v) for v in vc.values.tolist()]
+                    chart = {"type": "hist", "column": xcol, "labels": labels, "values": values, "bins": bins}
+
+        elif ctype == "line":
+            agg = str(chart_cfg.get("agg") or "count").strip().lower()
+            if xcol and xcol in df.columns:
+                x = df[xcol]
+                xd = pd.to_datetime(x, errors="coerce", utc=True)
+                use_dates = int(xd.notna().sum()) >= max(3, int(0.5 * len(df)))
+                if use_dates:
+                    key = xd.dt.date
+                else:
+                    key = x.astype(str)
+
+                if agg == "count" or not ycol or ycol not in df.columns:
+                    ser = df.groupby(key).size()
+                    agg = "count"
+                else:
+                    yn = pd.to_numeric(df[ycol], errors="coerce")
+                    if agg == "sum":
+                        ser = yn.groupby(key).sum(min_count=1)
+                    elif agg == "mean":
+                        ser = yn.groupby(key).mean()
+                    else:
+                        ser = df.groupby(key).size()
+                        agg = "count"
+
+                ser = ser.dropna().sort_index().tail(60)
+                labels = [str(x) for x in ser.index.tolist()]
+                values = [float(v) if v is not None else 0 for v in ser.values.tolist()]
+                chart = {"type": "line", "x": xcol, "y": (ycol or agg), "labels": labels, "values": values}
+
+        elif ctype == "scatter":
+            max_points = int(chart_cfg.get("max_points") or 600)
+            max_points = max(50, min(max_points, 5000))
+            if xcol and ycol and xcol in df.columns and ycol in df.columns:
+                xn = pd.to_numeric(df[xcol], errors="coerce")
+                yn = pd.to_numeric(df[ycol], errors="coerce")
+                tmp = pd.DataFrame({"x": xn, "y": yn}).dropna()
+                if len(tmp) > max_points:
+                    tmp = tmp.sample(n=max_points, random_state=0)
+                pts = [{"x": float(r.x), "y": float(r.y)} for r in tmp.itertuples(index=False)]
+                chart = {"type": "scatter", "x": xcol, "y": ycol, "points": pts, "max_points": max_points}
+
+    return jsonify(
+        {
+            "status": "ok",
+            "rows": records,
+            "total": total,
+            "offset": req_offset,
+            "limit": req_limit,
+            "meta": {
+                "app_name": str(APP.get("name") or "Preview"),
+                "subtitle": str(APP.get("subtitle") or ""),
+                "dataset_a": "sample_a.csv",
+                "dataset_b": "sample_b.csv" if os.path.isfile(os.path.join(APP_DIR, "sample_b.csv")) else "",
+                "dataset_c": "sample_c.csv" if os.path.isfile(os.path.join(APP_DIR, "sample_c.csv")) else "",
+                "join_enabled": any(s.get("enabled") for s in _join_steps() if s.get("right") == "b"),
+                "join_how": "left",
+                "joins": _join_steps(),
+                "columns": cols,
+                "ui": UI,
+                "filter_options": {},
+                "chart": chart,
+                "b_sample": None,
+                "note": "Local preview uses CSVs named sample_a.csv/sample_b.csv/sample_c.csv.",
+            },
+        }
+    )
+
+
+if __name__ == "__main__":
+    print("Preview server running on http://127.0.0.1:5005")
+    app.run(host="127.0.0.1", port=5005, debug=True)

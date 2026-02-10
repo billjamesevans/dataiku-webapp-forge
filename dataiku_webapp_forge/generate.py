@@ -4,6 +4,7 @@ import os
 import re
 import zipfile
 import pprint
+from datetime import datetime
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -41,6 +42,155 @@ def _env(templates_dir: str) -> Environment:
     env.filters["tojson"] = _tojson
     env.filters["py"] = _py
     return env
+
+
+def _is_blank(v: Any) -> bool:
+    if v is None:
+        return True
+    s = str(v).strip()
+    return s == "" or s.lower() in {"nan", "none", "null"}
+
+
+def _to_float(v: Any) -> Optional[float]:
+    if _is_blank(v):
+        return None
+    try:
+        return float(str(v).strip())
+    except Exception:
+        return None
+
+
+def _to_dt(v: Any) -> Optional[datetime]:
+    if _is_blank(v):
+        return None
+    s = str(v).strip()
+    for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%m/%d/%y", "%m/%d/%Y"):
+        try:
+            return datetime.strptime(s, fmt)
+        except Exception:
+            pass
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def _guess_type(values: List[Any]) -> str:
+    vals = [v for v in values if not _is_blank(v)]
+    if not vals:
+        return "unknown"
+    # Sample a bounded number
+    vals = vals[:50]
+    total = len(vals)
+    bool_set = {"true", "false", "yes", "no", "y", "n", "0", "1"}
+    bool_ok = sum(1 for v in vals if str(v).strip().lower() in bool_set)
+    dt_ok = sum(1 for v in vals if _to_dt(v) is not None)
+    num_ok = sum(1 for v in vals if _to_float(v) is not None)
+    if dt_ok / total >= 0.80:
+        return "datetime"
+    if num_ok / total >= 0.90:
+        # If it's purely 0/1, consider boolean.
+        if bool_ok / total >= 0.95:
+            return "boolean"
+        return "number"
+    if bool_ok / total >= 0.95:
+        return "boolean"
+    return "string"
+
+
+def _expected_schema(project: Dict[str, Any], columns_selected: List[Dict[str, Any]]) -> Dict[str, Any]:
+    csv = project.get("csv") if isinstance(project.get("csv"), dict) else {}
+    dku = project.get("dataiku") if isinstance(project.get("dataiku"), dict) else {}
+    transform = project.get("transform") if isinstance(project.get("transform"), dict) else {}
+    ui = project.get("ui") if isinstance(project.get("ui"), dict) else {}
+
+    def dataset_schema(key: str) -> Dict[str, Any]:
+        info = csv.get(key) if isinstance(csv.get(key), dict) else {}
+        cols = info.get("columns") if isinstance(info.get("columns"), list) else []
+        sample_rows = info.get("sample_rows") if isinstance(info.get("sample_rows"), list) else []
+        col_types = []
+        for c in cols:
+            vals = []
+            for r in sample_rows[:25]:
+                if isinstance(r, dict):
+                    vals.append(r.get(c))
+            col_types.append({"name": str(c), "type_guess": _guess_type(vals)})
+        return {
+            "dataset_name": str(dku.get(f"dataset_{key}") or ""),
+            "columns": col_types,
+        }
+
+    out: Dict[str, Any] = {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "datasets": {
+            "a": dataset_schema("a"),
+            "b": dataset_schema("b"),
+            "c": dataset_schema("c"),
+        },
+        "required": {
+            "output_columns": [str(c.get("name")) for c in columns_selected if isinstance(c, dict) and c.get("name")],
+            "filter_columns": [],
+            "join_columns": [],
+            "computed_inputs": [],
+        },
+        "notes": [
+            "Types are best-effort guesses from CSV sample rows captured in the Forge (may be empty if uploads were cleaned).",
+            "Dataset B columns appear in the backend as b__<col>. Dataset C columns appear as c__<col>.",
+        ],
+    }
+
+    # Filters
+    filter_cols: List[str] = []
+    for g in transform.get("filter_groups") or []:
+        if not isinstance(g, dict):
+            continue
+        for f in g.get("filters") or []:
+            if isinstance(f, dict) and f.get("column"):
+                filter_cols.append(str(f.get("column")))
+    out["required"]["filter_columns"] = sorted(set(filter_cols))
+
+    # Joins (canonical)
+    joins = transform.get("joins") if isinstance(transform.get("joins"), list) else []
+    join_cols: List[str] = []
+    for s in joins:
+        if not isinstance(s, dict) or not s.get("enabled"):
+            continue
+        right = str(s.get("right") or "").lower()
+        for k in s.get("keys") or []:
+            if not isinstance(k, dict):
+                continue
+            left = str(k.get("left") or "").strip()
+            rk = str(k.get("right") or "").strip()
+            if left:
+                join_cols.append(left)
+            if rk and right in {"b", "c"}:
+                join_cols.append(f"{right}::{rk}")
+    out["required"]["join_columns"] = sorted(set(join_cols))
+
+    # Computed columns inputs
+    comp_inputs: List[str] = []
+    computed = transform.get("computed_columns") if isinstance(transform.get("computed_columns"), list) else []
+    for cc in computed:
+        if not isinstance(cc, dict):
+            continue
+        ctype = str(cc.get("type") or "")
+        if ctype in {"concat", "coalesce"}:
+            for c in cc.get("columns") or []:
+                if c:
+                    comp_inputs.append(str(c))
+        elif ctype in {"date_format", "bucket"}:
+            if cc.get("column"):
+                comp_inputs.append(str(cc.get("column")))
+    out["required"]["computed_inputs"] = sorted(set(comp_inputs))
+
+    # UI extras (chart/filter)
+    out["ui"] = {
+        "template": str(ui.get("template") or "table"),
+        "frontend_filters": ui.get("frontend_filters") if isinstance(ui.get("frontend_filters"), list) else [],
+        "chart": ui.get("chart") if isinstance(ui.get("chart"), dict) else {},
+    }
+
+    return out
 
 
 def build_apps(project: Dict[str, Any], *, templates_dir: str) -> List[GeneratedApp]:
@@ -89,6 +239,7 @@ def build_apps(project: Dict[str, Any], *, templates_dir: str) -> List[Generated
         "transform": transform,
         "ui": ui_cfg,
         "columns_selected": cols_selected,
+        "expected_schema": _expected_schema(project, cols_selected),
     }
 
     apps: List[GeneratedApp] = []
@@ -102,7 +253,14 @@ def build_apps(project: Dict[str, Any], *, templates_dir: str) -> List[Generated
         ("webapp/backend.py.j2", "backend.py"),
         ("webapp/requirements.txt.j2", "requirements.txt"),
         ("webapp/SETUP.md.j2", "SETUP.md"),
+        ("webapp/config.json.j2", "config.json"),
         ("webapp/app_config.json.j2", "app_config.json"),
+        ("webapp/expected_schema.json.j2", "expected_schema.json"),
+        ("webapp/EXPECTED_SCHEMA.md.j2", "EXPECTED_SCHEMA.md"),
+        ("webapp/preview.html.j2", "preview.html"),
+        ("webapp/preview_server.py.j2", "preview_server.py"),
+        ("webapp/preview_requirements.txt.j2", "preview_requirements.txt"),
+        ("webapp/PREVIEW.md.j2", "PREVIEW.md"),
     ]:
         tpl = env.get_template(tpl_name)
         files[out_name] = tpl.render(**common_ctx)

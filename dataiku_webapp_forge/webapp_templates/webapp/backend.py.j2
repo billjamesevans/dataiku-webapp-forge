@@ -1,6 +1,6 @@
-import json
 import os
 import time
+import json
 from datetime import datetime
 
 import pandas as pd
@@ -9,19 +9,62 @@ from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
-# --- Configuration (generated) ---
-APP_NAME = {{ app_name|py }}
-SUBTITLE = {{ (subtitle or '')|py }}
+# --- Configuration ---
+# This backend prefers loading config from a JSON file in the webapp folder.
+# This keeps backend.py stable across regenerations (less churn) and makes manual tweaks easier.
+_EMBEDDED_CONFIG_JSON = r'''{{ {
+  "app": {"name": app_name, "subtitle": subtitle or ""},
+  "dataiku": project.get("dataiku") or {},
+  "transform": project.get("transform") or {},
+  "ui": project.get("ui") or {},
+  "columns": columns_selected or [],
+} | tojson(indent=2) }}'''
 
-DATASET_A = {{ (dataiku.get('dataset_a') or 'dataset_a')|py }}
-DATASET_B = {{ (dataiku.get('dataset_b') or '')|py }}
-DATASET_C = {{ (dataiku.get('dataset_c') or '')|py }}
 
-TRANSFORM = {{ (transform or {})|py }}
-UI = {{ (ui or {})|py }}
+def _load_config() -> dict:
+    # Search paths: alongside this file (Dataiku), then cwd (local preview).
+    base_dirs = []
+    try:
+        base_dirs.append(os.path.dirname(__file__))
+    except Exception:
+        pass
+    base_dirs.append(os.getcwd())
 
-# Output columns (name = backend column key; label = header in UI)
-COLUMNS = {{ (columns_selected or [])|py }}
+    for base in base_dirs:
+        for fname in ("config.json", "app_config.json"):
+            path = os.path.join(base, fname)
+            try:
+                if os.path.isfile(path):
+                    with open(path, "r", encoding="utf-8") as f:
+                        cfg = json.load(f)
+                    if isinstance(cfg, dict):
+                        # app_config.json stores columns under columns_selected
+                        if "columns" not in cfg and "columns_selected" in cfg:
+                            cfg["columns"] = cfg.get("columns_selected") or []
+                        return cfg
+            except Exception:
+                continue
+
+    try:
+        cfg2 = json.loads(_EMBEDDED_CONFIG_JSON)
+        return cfg2 if isinstance(cfg2, dict) else {}
+    except Exception:
+        return {}
+
+
+CONFIG = _load_config()
+APP = CONFIG.get("app") if isinstance(CONFIG.get("app"), dict) else {}
+DATAIKU = CONFIG.get("dataiku") if isinstance(CONFIG.get("dataiku"), dict) else {}
+TRANSFORM = CONFIG.get("transform") if isinstance(CONFIG.get("transform"), dict) else {}
+UI = CONFIG.get("ui") if isinstance(CONFIG.get("ui"), dict) else {}
+COLUMNS = CONFIG.get("columns") if isinstance(CONFIG.get("columns"), list) else []
+
+APP_NAME = str(APP.get("name") or "Dataiku WebApp")
+SUBTITLE = str(APP.get("subtitle") or "")
+
+DATASET_A = str(DATAIKU.get("dataset_a") or "dataset_a")
+DATASET_B = str(DATAIKU.get("dataset_b") or "")
+DATASET_C = str(DATAIKU.get("dataset_c") or "")
 
 """
 Performance notes (Dataiku backend):

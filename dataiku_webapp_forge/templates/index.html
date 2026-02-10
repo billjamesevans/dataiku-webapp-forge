@@ -8,17 +8,50 @@
       <span class="mono">style.css</span>, <span class="mono">script.js</span>, <span class="mono">backend.py</span>,
       and <span class="mono">SETUP.md</span>.
     </p>
-    <form method="post" action="{{ url_for('projects_new') }}">
-      <button class="btn btn-primary" type="submit">Create New Project</button>
-    </form>
+    <div class="panel">
+      <div class="grid2" style="grid-template-columns: 1fr 1fr;">
+        <form method="post" action="{{ url_for('projects_new') }}">
+          <button class="btn btn-primary" type="submit">Create New Project</button>
+          <div class="hint">Start from scratch, then upload CSV schemas in Sources.</div>
+        </form>
+
+        <form method="post" action="{{ url_for('projects_new_from_preset') }}">
+          <label class="small">Or start from a preset</label>
+          <div class="grid2" style="grid-template-columns: 1fr auto;">
+            <select name="preset_id">
+              <option value="">Select preset...</option>
+              {% for p in presets or [] %}
+                <option value="{{ p.get('id') }}">{{ p.get('name') }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn" type="submit">Create</button>
+          </div>
+          <div class="hint">Presets apply Transform + UI defaults. You still set datasets/CSVs per project.</div>
+        </form>
+      </div>
+    </div>
   </section>
 
   <section class="card">
     <div class="card-header">
-      <h2>Recent Projects</h2>
+      <div>
+        <h2 style="margin:0;">Projects</h2>
+        <div class="muted">Pinned first, then most recently updated.</div>
+      </div>
       <div class="muted">Saved under <span class="mono">{{ config.get('INSTANCE_PATH', '') }}/projects</span></div>
     </div>
     <div class="card-body">
+      <form method="get" class="grid2" style="grid-template-columns: 1fr auto; align-items:end;">
+        <div>
+          <label>Search</label>
+          <input name="q" value="{{ q or '' }}" placeholder="Search name, ID, or tag..." />
+        </div>
+        <div class="actions" style="margin-top:0;">
+          <button class="btn" type="submit">Search</button>
+          <a class="btn" href="{{ url_for('index') }}">Clear</a>
+        </div>
+      </form>
+
       {% if not projects %}
         <div class="empty">No projects yet. Create one above.</div>
       {% else %}
@@ -28,6 +61,7 @@
               <th>ID</th>
               <th>Name</th>
               <th>Datasets</th>
+              <th>Tags</th>
               <th></th>
             </tr>
           </thead>
@@ -35,11 +69,33 @@
             {% for p in projects %}
               <tr>
                 <td class="mono">{{ p.id[:8] }}</td>
-                <td>{{ (p.data.get('app') or {}).get('name') or 'Untitled' }}</td>
+                <td>
+                  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    {% set meta = (p.data.get('meta') or {}) %}
+                    {% if meta.get('pinned') %}<span class="badge badge-primary">Pinned</span>{% endif %}
+                    <span>{{ (p.data.get('app') or {}).get('name') or 'Untitled' }}</span>
+                  </div>
+                  <div class="muted" style="margin-top:2px;">
+                    Updated: {{ p.data.get('_updated_at_human') or '—' }}
+                  </div>
+                </td>
                 <td class="muted">
                   {% set dku = (p.data.get('dataiku') or {}) %}
                   <span class="mono">{{ dku.get('dataset_a') or 'dataset_a' }}</span>
                   {% if dku.get('dataset_b') %}<span class="mono"> + {{ dku.get('dataset_b') }}</span>{% endif %}
+                  {% if dku.get('dataset_c') %}<span class="mono"> + {{ dku.get('dataset_c') }}</span>{% endif %}
+                </td>
+                <td>
+                  {% set tags = ((p.data.get('meta') or {}).get('tags') or []) %}
+                  {% if tags %}
+                    <div class="badges">
+                      {% for t in tags %}
+                        <a class="badge" href="{{ url_for('index', tag=t) }}">{{ t }}</a>
+                      {% endfor %}
+                    </div>
+                  {% else %}
+                    <span class="muted">—</span>
+                  {% endif %}
                 </td>
                 <td class="td-actions">
                   <div class="menu" data-menu>
@@ -59,6 +115,7 @@
                     <div class="menu-panel" role="menu">
                       <a class="menu-item" role="menuitem" href="{{ url_for('project_export_page', project_id=p.id) }}">Export</a>
                       <a class="menu-item" role="menuitem" href="{{ url_for('project_export_zip', project_id=p.id) }}">Download zip</a>
+                      <a class="menu-item" role="menuitem" href="{{ url_for('project_settings', project_id=p.id) }}">Settings</a>
                       <div class="menu-sep"></div>
                       <form method="post" action="{{ url_for('project_duplicate', project_id=p.id) }}">
                         <button class="menu-item" role="menuitem" type="submit">Duplicate</button>
