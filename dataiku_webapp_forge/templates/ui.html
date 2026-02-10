@@ -62,10 +62,60 @@
             <div class="hint">The generated backend will return distinct values (top 200) to populate dropdowns.</div>
           </div>
           <div>
-            <label>Chart Column (for Chart + table template)</label>
+            <label>Chart (for Chart + table template)</label>
             {% set chart = ui.get('chart') or {} %}
-            <input name="chart_column" value="{{ chart.get('column') or '' }}" placeholder="e.g. planner_cd" />
-            <div class="hint">Counts will be computed in the backend (top N).</div>
+            <div class="grid2" style="grid-template-columns: 1fr 1fr;">
+              <div>
+                <label class="small">Type</label>
+                <select name="chart_type">
+                  {% set ct = chart.get('type') or 'bar' %}
+                  <option value="bar" {% if ct=='bar' %}selected{% endif %}>Bar (top N)</option>
+                  <option value="hist" {% if ct=='hist' %}selected{% endif %}>Histogram</option>
+                  <option value="line" {% if ct=='line' %}selected{% endif %}>Line (grouped)</option>
+                  <option value="scatter" {% if ct=='scatter' %}selected{% endif %}>Scatter</option>
+                </select>
+              </div>
+              <div>
+                <label class="small">Main column (legacy)</label>
+                <input name="chart_column" value="{{ chart.get('column') or '' }}" placeholder="e.g. status" />
+              </div>
+            </div>
+            <div class="grid2" style="grid-template-columns: 1fr 1fr; margin-top:10px;">
+              <div>
+                <label class="small">X column</label>
+                <input name="chart_x_column" value="{{ chart.get('x_column') or '' }}" placeholder="e.g. created_date" />
+              </div>
+              <div>
+                <label class="small">Y column (optional)</label>
+                <input name="chart_y_column" value="{{ chart.get('y_column') or '' }}" placeholder="e.g. amount" />
+              </div>
+            </div>
+            <div class="grid2" style="grid-template-columns: 1fr 1fr; margin-top:10px;">
+              <div>
+                <label class="small">Aggregation (line)</label>
+                <select name="chart_agg">
+                  {% set ca = chart.get('agg') or 'count' %}
+                  <option value="count" {% if ca=='count' %}selected{% endif %}>count</option>
+                  <option value="sum" {% if ca=='sum' %}selected{% endif %}>sum</option>
+                  <option value="mean" {% if ca=='mean' %}selected{% endif %}>mean</option>
+                </select>
+              </div>
+              <div>
+                <label class="small">Bins (hist)</label>
+                <input name="chart_bins" value="{{ chart.get('bins', 16) }}" />
+              </div>
+            </div>
+            <div class="grid2" style="grid-template-columns: 1fr 1fr; margin-top:10px;">
+              <div>
+                <label class="small">Top N (bar)</label>
+                <input name="chart_top_n" value="{{ chart.get('top_n', 12) }}" />
+              </div>
+              <div>
+                <label class="small">Max points (scatter)</label>
+                <input name="chart_max_points" value="{{ chart.get('max_points', 600) }}" />
+              </div>
+            </div>
+            <div class="hint">No extra JS libraries are used; charts render as simple SVG.</div>
           </div>
         </div>
 
@@ -76,10 +126,7 @@
               <span>Enable chart</span>
             </label>
           </div>
-          <div>
-            <label>Chart top N</label>
-            <input name="chart_top_n" value="{{ (ui.get('chart') or {}).get('top_n', 12) }}" />
-          </div>
+          <div></div>
         </div>
 
         <div class="actions">

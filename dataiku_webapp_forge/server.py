@@ -599,8 +599,14 @@ def create_app() -> Flask:
             ui["frontend_filters"] = [x.strip() for x in ff.split(",") if x.strip()]
             ui.setdefault("chart", {})
             ui["chart"]["enabled"] = request.form.get("chart_enabled") == "on"
+            ui["chart"]["type"] = (request.form.get("chart_type") or "bar").strip()
             ui["chart"]["column"] = (request.form.get("chart_column") or "").strip()
+            ui["chart"]["x_column"] = (request.form.get("chart_x_column") or "").strip()
+            ui["chart"]["y_column"] = (request.form.get("chart_y_column") or "").strip()
+            ui["chart"]["agg"] = (request.form.get("chart_agg") or "count").strip()
             ui["chart"]["top_n"] = max(1, min(50, _safe_int(request.form.get("chart_top_n"), 12)))
+            ui["chart"]["bins"] = max(3, min(80, _safe_int(request.form.get("chart_bins"), 16)))
+            ui["chart"]["max_points"] = max(50, min(5000, _safe_int(request.form.get("chart_max_points"), 600)))
             # Allow updating app name/subtitle from here too.
             app_name = (request.form.get("app_name") or "").strip()
             subtitle = (request.form.get("subtitle") or "").strip()

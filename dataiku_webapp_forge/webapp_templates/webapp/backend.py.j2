@@ -1,4 +1,6 @@
 import json
+import os
+import time
 from datetime import datetime
 
 import pandas as pd
@@ -21,16 +23,198 @@ UI = {{ (ui or {})|py }}
 # Output columns (name = backend column key; label = header in UI)
 COLUMNS = {{ (columns_selected or [])|py }}
 
+"""
+Performance notes (Dataiku backend):
+
+- Dataiku Standard WebApp backends can time out if you load very large datasets on every request.
+- This backend caps Dataset A reads to TRANSFORM['limit'] rows (set in the generator) and caches the joined/filtered
+  base dataframe in-memory for a short TTL to keep requests snappy.
+"""
+
+CACHE_TTL_SECONDS = 60
+BASE_ROW_LIMIT = int((TRANSFORM or {}).get("limit") or 2000)
+BASE_ROW_LIMIT = max(1, min(BASE_ROW_LIMIT, 200000))
+
+_BASE_CACHE = {"at": 0.0, "df": None, "note": ""}
+
+
 def _prefix_columns(df: pd.DataFrame, prefix: str) -> pd.DataFrame:
     rename = {c: (prefix + c) for c in df.columns}
     return df.rename(columns=rename)
 
 
-def _dataset_df(name: str) -> pd.DataFrame:
+def _dataset_df(name: str, *, columns=None, limit=None) -> pd.DataFrame:
     if not name:
         raise ValueError("Missing dataset name.")
     ds = dataiku.Dataset(name)
-    return ds.get_dataframe()
+    kwargs = {}
+    if columns:
+        kwargs["columns"] = list(columns)
+    if limit is not None:
+        kwargs["limit"] = int(limit)
+    # Avoid heavy parsing; we convert dates/numbers on-demand in filters/computed columns.
+    kwargs["parse_dates"] = False
+    try:
+        return ds.get_dataframe(**kwargs)
+    except TypeError:
+        # Older Dataiku SDK versions may not accept some kwargs.
+        df = ds.get_dataframe()
+        if columns:
+            keep = [c for c in columns if c in df.columns]
+            df = df[keep]
+        if limit is not None:
+            df = df.head(int(limit))
+        return df
+
+
+def _split_prefixed(col: str):
+    col = str(col or "")
+    if col.startswith("b__"):
+        return ("b", col[3:])
+    if col.startswith("c__"):
+        return ("c", col[3:])
+    return ("a", col)
+
+
+def _needed_columns():
+    """
+    Compute the minimal raw columns needed from each dataset to satisfy joins/filters/computed columns/output.
+    Returns (needed_a, needed_b_raw, needed_c_raw).
+    """
+    needed_a = set()
+    needed_b = set()
+    needed_c = set()
+
+    # Output columns
+    for c in COLUMNS if isinstance(COLUMNS, list) else []:
+        if not isinstance(c, dict):
+            continue
+        side, raw = _split_prefixed(c.get("name"))
+        if raw:
+            if side == "a":
+                needed_a.add(raw)
+            elif side == "b":
+                needed_b.add(raw)
+            elif side == "c":
+                needed_c.add(raw)
+
+    # Filters (transform filter groups)
+    for g in (TRANSFORM or {}).get("filter_groups") or []:
+        if not isinstance(g, dict):
+            continue
+        for f in g.get("filters") or []:
+            if not isinstance(f, dict):
+                continue
+            side, raw = _split_prefixed(f.get("column"))
+            if raw:
+                if side == "a":
+                    needed_a.add(raw)
+                elif side == "b":
+                    needed_b.add(raw)
+                elif side == "c":
+                    needed_c.add(raw)
+
+    # Sort
+    sort_cfg = (TRANSFORM or {}).get("sort") or {}
+    sort_col = str(sort_cfg.get("column") or "").strip()
+    if sort_col:
+        side, raw = _split_prefixed(sort_col)
+        if raw:
+            if side == "a":
+                needed_a.add(raw)
+            elif side == "b":
+                needed_b.add(raw)
+            elif side == "c":
+                needed_c.add(raw)
+
+    # Sidebar filters
+    ff_cols = (UI or {}).get("frontend_filters") if isinstance((UI or {}).get("frontend_filters"), list) else []
+    for col in ff_cols:
+        side, raw = _split_prefixed(col)
+        if raw:
+            if side == "a":
+                needed_a.add(raw)
+            elif side == "b":
+                needed_b.add(raw)
+            elif side == "c":
+                needed_c.add(raw)
+
+    # Chart columns (optional)
+    chart_cfg = (UI or {}).get("chart") or {}
+    for k in ("column", "x_column", "y_column"):
+        v = str(chart_cfg.get(k) or "").strip()
+        if v:
+            side, raw = _split_prefixed(v)
+            if raw:
+                if side == "a":
+                    needed_a.add(raw)
+                elif side == "b":
+                    needed_b.add(raw)
+                elif side == "c":
+                    needed_c.add(raw)
+
+    # Computed columns inputs
+    computed = (TRANSFORM or {}).get("computed_columns")
+    if isinstance(computed, list):
+        for cc in computed:
+            if not isinstance(cc, dict):
+                continue
+            ctype = str(cc.get("type") or "").strip()
+            if ctype in {"concat", "coalesce"}:
+                cols = cc.get("columns") if isinstance(cc.get("columns"), list) else []
+                for c in cols:
+                    side, raw = _split_prefixed(c)
+                    if raw:
+                        if side == "a":
+                            needed_a.add(raw)
+                        elif side == "b":
+                            needed_b.add(raw)
+                        elif side == "c":
+                            needed_c.add(raw)
+            elif ctype in {"date_format", "bucket"}:
+                side, raw = _split_prefixed(cc.get("column"))
+                if raw:
+                    if side == "a":
+                        needed_a.add(raw)
+                    elif side == "b":
+                        needed_b.add(raw)
+                    elif side == "c":
+                        needed_c.add(raw)
+
+    # Join keys
+    for step in _join_steps():
+        if not step.get("enabled"):
+            continue
+        right = str(step.get("right") or "")
+        keys = step.get("keys") if isinstance(step.get("keys"), list) else []
+        for k in keys:
+            if not isinstance(k, dict):
+                continue
+            left = str(k.get("left") or "").strip()
+            rk = str(k.get("right") or "").strip()
+            if left:
+                side, raw = _split_prefixed(left)
+                if raw:
+                    if side == "a":
+                        needed_a.add(raw)
+                    elif side == "b":
+                        needed_b.add(raw)
+                    elif side == "c":
+                        needed_c.add(raw)
+            if rk:
+                if right == "b":
+                    needed_b.add(rk)
+                elif right == "c":
+                    needed_c.add(rk)
+
+    # Ensure we always read at least one column from A.
+    if not needed_a:
+        needed_a = None
+    if not needed_b:
+        needed_b = None
+    if not needed_c:
+        needed_c = None
+    return (needed_a, needed_b, needed_c)
 
 
 def _join_steps() -> list:
@@ -260,7 +444,13 @@ def _apply_computed_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _build_base_dataframe() -> pd.DataFrame:
-    df = _dataset_df(DATASET_A)
+    now = time.time()
+    cached = _BASE_CACHE.get("df")
+    if cached is not None and (now - float(_BASE_CACHE.get("at") or 0.0)) < float(CACHE_TTL_SECONDS):
+        return cached
+
+    needed_a, needed_b, needed_c = _needed_columns()
+    df = _dataset_df(DATASET_A, columns=needed_a, limit=BASE_ROW_LIMIT)
 
     for step in _join_steps():
         if not step.get("enabled"):
@@ -291,7 +481,12 @@ def _build_base_dataframe() -> pd.DataFrame:
             if a not in df.columns:
                 raise ValueError("Join key not found in left dataframe for Dataset " + right.upper() + ": " + a)
 
-        df_r = _dataset_df(ds_name)
+        # For correctness, we load the full right dataset by default (but only needed columns).
+        # If you need to cap right-side joins for performance, set WEBAPP_RIGHT_MAX_ROWS in your code env.
+        right_cap = int(os.environ.get("WEBAPP_RIGHT_MAX_ROWS", "0") or "0")
+        right_limit = right_cap if right_cap > 0 else None
+        needed_right = needed_b if right == "b" else needed_c
+        df_r = _dataset_df(ds_name, columns=needed_right, limit=right_limit)
         df_r = _prefix_columns(df_r, prefix)
         right_on = [prefix + b for _, b in pairs]
         for rkey, raw in zip(right_on, [b for _, b in pairs]):
@@ -302,24 +497,33 @@ def _build_base_dataframe() -> pd.DataFrame:
 
     df = _apply_filter_groups(df)
     df = _apply_computed_columns(df)
+    _BASE_CACHE["df"] = df
+    _BASE_CACHE["at"] = now
+    _BASE_CACHE["note"] = f"Dataset A capped to first {BASE_ROW_LIMIT} rows for performance."
     return df
 
 
-def _selected_columns() -> List[dict]:
+def _selected_columns():
     cols = [{"name": c.get("name"), "label": c.get("label") or c.get("name")} for c in COLUMNS if isinstance(c, dict)]
     # If nothing was selected (or if the generator is older), fall back to whatever the dataframe provides.
     return [c for c in cols if c.get("name")]
 
 
-def _distinct_options(df: pd.DataFrame, col: str, *, max_items: int = 200) -> List[str]:
+def _distinct_options(df: pd.DataFrame, col: str, *, max_items: int = 200):
     if col not in df.columns:
         return []
     s = df[col].dropna()
     # Convert to string so the frontend can compare consistently.
-    vals = s.astype(str).dropna().unique().tolist()
-    vals = [v for v in vals if str(v).strip() != ""]
-    vals.sort()
-    return vals[:max_items]
+    try:
+        # Faster than unique() on large-ish frames.
+        vc = s.astype(str).value_counts(dropna=True)
+        vals = [v for v in vc.index.tolist() if str(v).strip() != ""]
+        return vals[:max_items]
+    except Exception:
+        vals = s.astype(str).dropna().unique().tolist()
+        vals = [v for v in vals if str(v).strip() != ""]
+        vals.sort()
+        return vals[:max_items]
 
 
 @app.route("/rows", methods=["GET"])
@@ -395,14 +599,81 @@ def rows():
         # Chart data
         chart_cfg = (UI or {}).get("chart") or {}
         chart = None
-        if chart_cfg.get("enabled") and chart_cfg.get("column"):
-            cc = str(chart_cfg.get("column"))
-            top_n = int(chart_cfg.get("top_n") or 12)
-            top_n = max(1, min(top_n, 50))
-            if cc in df.columns:
-                s = df[cc].astype(str).fillna("").replace({"nan": ""})
-                counts = s[s != ""].value_counts().head(top_n)
-                chart = {"column": cc, "labels": counts.index.tolist(), "values": counts.values.tolist()}
+        if chart_cfg.get("enabled"):
+            ctype = str(chart_cfg.get("type") or "bar").strip().lower()
+            xcol = str(chart_cfg.get("x_column") or "").strip() or str(chart_cfg.get("column") or "").strip()
+            ycol = str(chart_cfg.get("y_column") or "").strip()
+
+            if ctype == "bar":
+                top_n = int(chart_cfg.get("top_n") or 12)
+                top_n = max(1, min(top_n, 50))
+                if xcol and xcol in df.columns:
+                    s = df[xcol].astype(str).fillna("").replace({"nan": ""})
+                    counts = s[s != ""].value_counts().head(top_n)
+                    chart = {"type": "bar", "column": xcol, "labels": counts.index.tolist(), "values": counts.values.tolist()}
+
+            elif ctype == "hist":
+                bins = int(chart_cfg.get("bins") or 16)
+                bins = max(3, min(bins, 80))
+                if xcol and xcol in df.columns:
+                    sn = pd.to_numeric(df[xcol], errors="coerce").dropna()
+                    if len(sn):
+                        counts, edges = pd.cut(sn, bins=bins, retbins=True, include_lowest=True, duplicates="drop")
+                        vc = counts.value_counts().sort_index()
+                        # Use edge labels like "0-10"
+                        labels = [str(i) for i in vc.index.astype(str).tolist()]
+                        values = [int(v) for v in vc.values.tolist()]
+                        chart = {"type": "hist", "column": xcol, "labels": labels, "values": values, "bins": bins}
+
+            elif ctype == "line":
+                agg = str(chart_cfg.get("agg") or "count").strip().lower()
+                if xcol and xcol in df.columns:
+                    x = df[xcol]
+                    # If it looks like a date, group by day.
+                    xd = pd.to_datetime(x, errors="coerce", utc=True)
+                    use_dates = int(xd.notna().sum()) >= max(3, int(0.5 * len(df)))
+                    if use_dates:
+                        key = xd.dt.date
+                        key_name = "date"
+                    else:
+                        key = x.astype(str)
+                        key_name = "value"
+
+                    if agg == "count" or not ycol:
+                        ser = df.groupby(key).size()
+                    else:
+                        if ycol not in df.columns:
+                            ser = df.groupby(key).size()
+                            agg = "count"
+                        else:
+                            yn = pd.to_numeric(df[ycol], errors="coerce")
+                            if agg == "sum":
+                                ser = yn.groupby(key).sum(min_count=1)
+                            elif agg == "mean":
+                                ser = yn.groupby(key).mean()
+                            else:
+                                ser = df.groupby(key).size()
+                                agg = "count"
+
+                    ser = ser.dropna()
+                    ser = ser.sort_index()
+                    # Keep it readable
+                    ser = ser.tail(60)
+                    labels = [str(x) for x in ser.index.tolist()]
+                    values = [float(v) if v is not None else 0 for v in ser.values.tolist()]
+                    chart = {"type": "line", "x": xcol, "y": (ycol or agg), "key": key_name, "labels": labels, "values": values}
+
+            elif ctype == "scatter":
+                max_points = int(chart_cfg.get("max_points") or 600)
+                max_points = max(50, min(max_points, 5000))
+                if xcol and ycol and xcol in df.columns and ycol in df.columns:
+                    xn = pd.to_numeric(df[xcol], errors="coerce")
+                    yn = pd.to_numeric(df[ycol], errors="coerce")
+                    tmp = pd.DataFrame({"x": xn, "y": yn}).dropna()
+                    if len(tmp) > max_points:
+                        tmp = tmp.sample(n=max_points, random_state=0)
+                    pts = [{"x": float(r.x), "y": float(r.y)} for r in tmp.itertuples(index=False)]
+                    chart = {"type": "scatter", "x": xcol, "y": ycol, "points": pts, "max_points": max_points}
 
         # Two-tables sample
         b_sample = None
@@ -442,6 +713,7 @@ def rows():
                     "filter_options": filter_options,
                     "chart": chart,
                     "b_sample": b_sample,
+                    "note": str(_BASE_CACHE.get("note") or ""),
                 },
             }
         )

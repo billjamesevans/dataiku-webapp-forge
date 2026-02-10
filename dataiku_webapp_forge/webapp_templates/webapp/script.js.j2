@@ -310,31 +310,134 @@ function loadRows() {
 function renderChart(meta) {
   if (TEMPLATE !== 'chart_table') return;
   var chart = meta.chart;
-  if (!chart || !chart.labels || !chart.values) {
+  if (!chart) {
     $('#chart').html('');
     $('#chartEmpty').show();
     return;
   }
   $('#chartEmpty').hide();
+
+  var type = (chart.type || 'bar');
   var labels = chart.labels || [];
   var values = chart.values || [];
-  var max = 0;
-  for (var i = 0; i < values.length; i++) max = Math.max(max, values[i] || 0);
-  var barH = 22;
-  var gap = 8;
-  var w = 760;
-  var h = (barH + gap) * labels.length + 10;
-  var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" width="' + w + '" height="' + h + '">';
-  for (var r = 0; r < labels.length; r++) {
-    var y = 10 + r * (barH + gap);
-    var val = values[r] || 0;
-    var bw = max ? Math.round((val / max) * 480) : 0;
-    svg += '<text x="0" y="' + (y + 15) + '" font-size="12" fill="#6b7280">' + escapeHtml(labels[r]) + '</text>';
-    svg += '<rect x="240" y="' + y + '" width="' + bw + '" height="' + barH + '" rx="6" fill="#2563eb" opacity="0.85"></rect>';
-    svg += '<text x="' + (240 + bw + 8) + '" y="' + (y + 15) + '" font-size="12" fill="#111827">' + escapeHtml(val) + '</text>';
+
+  function maxOf(arr) {
+    var m = 0;
+    for (var i = 0; i < (arr || []).length; i++) m = Math.max(m, Number(arr[i] || 0));
+    return m;
   }
-  svg += '</svg>';
-  $('#chart').html(svg);
+
+  // Bar + hist (rendered similarly)
+  if (type === 'bar' || type === 'hist') {
+    if (!labels.length || !values.length) {
+      $('#chart').html('');
+      $('#chartEmpty').show();
+      return;
+    }
+    var max = maxOf(values);
+    var barH = 22;
+    var gap = 8;
+    var w = 760;
+    var h = (barH + gap) * labels.length + 10;
+    var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" width="' + w + '" height="' + h + '">';
+    for (var r = 0; r < labels.length; r++) {
+      var y = 10 + r * (barH + gap);
+      var val = Number(values[r] || 0);
+      var bw = max ? Math.round((val / max) * 480) : 0;
+      svg += '<text x="0" y="' + (y + 15) + '" font-size="12" fill="#6b7280">' + escapeHtml(labels[r]) + '</text>';
+      svg += '<rect x="240" y="' + y + '" width="' + bw + '" height="' + barH + '" rx="6" fill="#2563eb" opacity="0.85"></rect>';
+      svg += '<text x="' + (240 + bw + 8) + '" y="' + (y + 15) + '" font-size="12" fill="#111827">' + escapeHtml(val) + '</text>';
+    }
+    svg += '</svg>';
+    $('#chart').html(svg);
+    return;
+  }
+
+  // Line chart (labels + values)
+  if (type === 'line') {
+    if (!labels.length || !values.length) {
+      $('#chart').html('');
+      $('#chartEmpty').show();
+      return;
+    }
+    var w2 = 760;
+    var h2 = 240;
+    var padL = 44, padR = 16, padT = 12, padB = 34;
+    var plotW = w2 - padL - padR;
+    var plotH = h2 - padT - padB;
+    var vmax = maxOf(values) || 1;
+    var n = values.length;
+
+    var pts = [];
+    for (var i2 = 0; i2 < n; i2++) {
+      var x = padL + (n === 1 ? 0 : Math.round((i2 / (n - 1)) * plotW));
+      var yv = Number(values[i2] || 0);
+      var y = padT + Math.round(plotH - (yv / vmax) * plotH);
+      pts.push(x + ',' + y);
+    }
+
+    var svg2 = '<svg viewBox="0 0 ' + w2 + ' ' + h2 + '" width="' + w2 + '" height="' + h2 + '">';
+    svg2 += '<line x1="' + padL + '" y1="' + (padT + plotH) + '" x2="' + (padL + plotW) + '" y2="' + (padT + plotH) + '" stroke="#e5e7eb"/>';
+    svg2 += '<line x1="' + padL + '" y1="' + padT + '" x2="' + padL + '" y2="' + (padT + plotH) + '" stroke="#e5e7eb"/>';
+    svg2 += '<polyline fill="none" stroke="#2563eb" stroke-width="2" points="' + pts.join(' ') + '"></polyline>';
+    for (var i3 = 0; i3 < n; i3++) {
+      var x3 = padL + (n === 1 ? 0 : Math.round((i3 / (n - 1)) * plotW));
+      var yv3 = Number(values[i3] || 0);
+      var y3 = padT + Math.round(plotH - (yv3 / vmax) * plotH);
+      svg2 += '<circle cx="' + x3 + '" cy="' + y3 + '" r="3" fill="#2563eb" opacity="0.85"></circle>';
+    }
+    // a few x labels
+    var step = Math.max(1, Math.floor(n / 6));
+    for (var i4 = 0; i4 < n; i4 += step) {
+      var x4 = padL + (n === 1 ? 0 : Math.round((i4 / (n - 1)) * plotW));
+      svg2 += '<text x="' + x4 + '" y="' + (padT + plotH + 22) + '" font-size="11" fill="#6b7280" text-anchor="middle">' + escapeHtml(labels[i4]) + '</text>';
+    }
+    svg2 += '</svg>';
+    $('#chart').html(svg2);
+    return;
+  }
+
+  // Scatter plot
+  if (type === 'scatter') {
+    var points = chart.points || [];
+    if (!points.length) {
+      $('#chart').html('');
+      $('#chartEmpty').show();
+      return;
+    }
+    var w3 = 760;
+    var h3 = 260;
+    var padL3 = 44, padR3 = 16, padT3 = 12, padB3 = 34;
+    var plotW3 = w3 - padL3 - padR3;
+    var plotH3 = h3 - padT3 - padB3;
+
+    var xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity;
+    for (var p = 0; p < points.length; p++) {
+      xmin = Math.min(xmin, points[p].x);
+      xmax = Math.max(xmax, points[p].x);
+      ymin = Math.min(ymin, points[p].y);
+      ymax = Math.max(ymax, points[p].y);
+    }
+    if (!isFinite(xmin) || xmin === xmax) { xmin = xmin - 1; xmax = xmax + 1; }
+    if (!isFinite(ymin) || ymin === ymax) { ymin = ymin - 1; ymax = ymax + 1; }
+
+    function sx(xv) { return padL3 + Math.round(((xv - xmin) / (xmax - xmin)) * plotW3); }
+    function sy(yv) { return padT3 + Math.round(plotH3 - ((yv - ymin) / (ymax - ymin)) * plotH3); }
+
+    var svg3 = '<svg viewBox="0 0 ' + w3 + ' ' + h3 + '" width="' + w3 + '" height="' + h3 + '">';
+    svg3 += '<line x1="' + padL3 + '" y1="' + (padT3 + plotH3) + '" x2="' + (padL3 + plotW3) + '" y2="' + (padT3 + plotH3) + '" stroke="#e5e7eb"/>';
+    svg3 += '<line x1="' + padL3 + '" y1="' + padT3 + '" x2="' + padL3 + '" y2="' + (padT3 + plotH3) + '" stroke="#e5e7eb"/>';
+    for (var p2 = 0; p2 < points.length; p2++) {
+      svg3 += '<circle cx="' + sx(points[p2].x) + '" cy="' + sy(points[p2].y) + '" r="3" fill="#2563eb" opacity="0.35"></circle>';
+    }
+    svg3 += '</svg>';
+    $('#chart').html(svg3);
+    return;
+  }
+
+  // Unknown chart type
+  $('#chart').html('');
+  $('#chartEmpty').show();
 }
 
 $(function () {

@@ -85,7 +85,22 @@ def create_project(instance_dir: str) -> Project:
             "frontend_filters": [],
             "pagination": False,
             "page_size": 200,
-            "chart": {"enabled": False, "column": "", "top_n": 12},
+            "chart": {
+                "enabled": False,
+                # bar|hist|line|scatter
+                "type": "bar",
+                # Backward compat: "column" is used for bar/hist when x_column is not set.
+                "column": "",
+                # General inputs
+                "x_column": "",
+                "y_column": "",
+                # Aggregation for line charts: count|sum|mean
+                "agg": "count",
+                # Parameters
+                "top_n": 12,
+                "bins": 16,
+                "max_points": 600,
+            },
         },
     }
     proj = Project(id=pid, root_dir=root, data=data)
@@ -240,7 +255,33 @@ def normalize_project_data(data: Dict[str, Any]) -> Dict[str, Any]:
     ui.setdefault("frontend_filters", [])
     ui.setdefault("pagination", False)
     ui.setdefault("page_size", 200)
-    ui.setdefault("chart", {"enabled": False, "column": "", "top_n": 12})
+    ui.setdefault(
+        "chart",
+        {
+            "enabled": False,
+            "type": "bar",
+            "column": "",
+            "x_column": "",
+            "y_column": "",
+            "agg": "count",
+            "top_n": 12,
+            "bins": 16,
+            "max_points": 600,
+        },
+    )
+    # Normalize chart config keys for older projects.
+    chart = ui.get("chart") if isinstance(ui.get("chart"), dict) else {}
+    if isinstance(chart, dict):
+        chart.setdefault("enabled", False)
+        chart.setdefault("type", "bar")
+        chart.setdefault("column", "")
+        chart.setdefault("x_column", "")
+        chart.setdefault("y_column", "")
+        chart.setdefault("agg", "count")
+        chart.setdefault("top_n", 12)
+        chart.setdefault("bins", 16)
+        chart.setdefault("max_points", 600)
+        ui["chart"] = chart
 
     return data
 
