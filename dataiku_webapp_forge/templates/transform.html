@@ -527,7 +527,7 @@
     function runAnalyze() {
       var status = document.getElementById('analyzeStatus');
       status.textContent = 'Analyzing...';
-      fetch('{{ url_for(\"project_analyze\", project_id=project.id) }}')
+      fetch('{{ url_for("project_analyze", project_id=project.id) }}')
         .then(function (r) { return r.json(); })
         .then(function (data) {
           if (!data || data.status !== 'ok') throw new Error((data && data.message) || 'Analyze failed');
