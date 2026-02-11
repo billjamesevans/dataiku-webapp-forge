@@ -1,0 +1,83 @@
+<div class="mf-app">
+  <header class="hero">
+    <div class="hero-copy">
+      <p class="eyebrow">Manufacturing Operations</p>
+      <h1>Smart Factory Command Center</h1>
+      <p class="subtitle">Unified view of throughput, OEE, quality losses, and live machine risk signals.</p>
+    </div>
+    <div class="hero-controls">
+      <label for="windowDays">Analysis Window</label>
+      <select id="windowDays">
+        <option value="7">Last 7 days</option>
+        <option value="14" selected>Last 14 days</option>
+        <option value="30">Last 30 days</option>
+      </select>
+      <button id="refreshBtn" type="button">Refresh</button>
+      <span id="lastUpdated" class="meta">Waiting for data</span>
+    </div>
+  </header>
+
+  <section class="kpi-grid" id="kpiGrid"></section>
+
+  <section class="panel-grid two-up">
+    <article class="panel">
+      <div class="panel-head">
+        <h2>Throughput & OEE Trend</h2>
+        <span id="trendSummary" class="chip">-</span>
+      </div>
+      <div id="trendChart" class="chart-canvas"></div>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head">
+        <h2>Line Performance Snapshot</h2>
+        <span class="chip">Grouped by line</span>
+      </div>
+      <div id="lineBoard" class="line-board"></div>
+    </article>
+  </section>
+
+  <section class="panel-grid two-up">
+    <article class="panel">
+      <div class="panel-head">
+        <h2>Defect Pareto</h2>
+        <span class="chip">Top quality losses</span>
+      </div>
+      <div id="defectBars" class="bar-list"></div>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head">
+        <h2>Live Manufacturing Alerts</h2>
+        <span id="alertCount" class="chip critical">0 active</span>
+      </div>
+      <div id="alertList" class="alert-list"></div>
+    </article>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Machine Telemetry Feed</h2>
+      <span class="chip">Latest 25 records</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Machine</th>
+            <th>Line</th>
+            <th>Status</th>
+            <th>Temp (C)</th>
+            <th>Vibration</th>
+            <th>Power kW</th>
+            <th>Operator</th>
+          </tr>
+        </thead>
+        <tbody id="telemetryBody"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>

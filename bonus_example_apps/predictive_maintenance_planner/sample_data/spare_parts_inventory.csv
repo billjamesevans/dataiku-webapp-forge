@@ -1,0 +1,11 @@
+part_id,part_name,machine_family,on_hand,reorder_point,lead_time_days,daily_usage,unit_cost,criticality,supplier_otd_pct
+PR-101,Press Bearing Kit,Press,14,20,5,0.41,1718.0,Medium,84.4
+PR-201,Hydraulic Seal Pack,Press,26,16,27,1.36,6634.3,Medium,88.6
+CNC-110,Spindle Cartridge,CNC,4,16,27,2.49,1193.27,High,86.9
+CNC-220,Coolant Pump,CNC,21,24,26,2.02,2662.12,High,98.2
+HT-301,Thermocouple Assembly,HeatTreat,18,18,24,1.4,5676.85,Medium,94.7
+HT-320,Burner Control Valve,HeatTreat,7,13,26,1.37,6218.75,Critical,90.9
+AS-410,Servo Drive Module,Assembly,2,14,6,2.18,7448.43,Critical,91.2
+AS-430,Torque Transducer,Assembly,16,10,19,2.5,259.93,Medium,89.4
+GEN-777,Industrial VFD,Assembly,20,16,20,1.48,1829.14,Critical,98.8
+GEN-888,Condition Sensor Node,CNC,13,24,11,1.5,315.43,Medium,91.5

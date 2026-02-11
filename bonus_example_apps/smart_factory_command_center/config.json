@@ -1,0 +1,16 @@
+{
+  "app": {
+    "name": "Smart Factory Command Center",
+    "subtitle": "Throughput, quality, and machine health in one cockpit"
+  },
+  "dataiku": {
+    "production_dataset": "mf_production_events",
+    "quality_dataset": "mf_quality_events",
+    "telemetry_dataset": "mf_machine_telemetry"
+  },
+  "local_sources": {
+    "production_csv": "sample_data/production_log.csv",
+    "quality_csv": "sample_data/quality_events.csv",
+    "telemetry_csv": "sample_data/machine_telemetry.csv"
+  }
+}

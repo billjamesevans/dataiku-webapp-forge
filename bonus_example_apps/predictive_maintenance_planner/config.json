@@ -1,0 +1,20 @@
+{
+  "app": {
+    "name": "Predictive Maintenance Planner",
+    "subtitle": "Prioritize maintenance interventions before production impact"
+  },
+  "dataiku": {
+    "sensor_dataset": "mf_sensor_readings",
+    "work_orders_dataset": "mf_maintenance_work_orders",
+    "parts_dataset": "mf_spare_parts_inventory"
+  },
+  "local_sources": {
+    "sensor_csv": "sample_data/sensor_readings.csv",
+    "work_orders_csv": "sample_data/maintenance_work_orders.csv",
+    "parts_csv": "sample_data/spare_parts_inventory.csv"
+  },
+  "business_rules": {
+    "downtime_cost_per_hour": 2750,
+    "target_labor_hours_14d": 260
+  }
+}

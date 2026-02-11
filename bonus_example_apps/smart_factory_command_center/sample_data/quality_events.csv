@@ -1,0 +1,326 @@
+event_id,timestamp,line,product_family,defect_type,severity,units_impacted,root_cause
+Q00409,2026-01-12T18:06:00Z,Line-D,Pump-Housing,Thread Damage,Medium,30,Setup Drift
+Q00646,2026-01-12T20:33:00Z,Line-C,Seal-Plate,Coating Void,Medium,18,Setup Drift
+Q00816,2026-01-12T03:56:00Z,Line-D,Valve-Body,Burr,Low,26,Supplier Material
+Q00846,2026-01-12T13:51:00Z,Line-D,Pump-Housing,Dimension Drift,Medium,46,Setup Drift
+Q00608,2026-01-12T20:36:00Z,Line-B,Pump-Housing,Thread Damage,Medium,48,Tool Wear
+Q00347,2026-01-12T13:04:00Z,Line-D,Seal-Plate,Burr,Low,4,Sensor Fault
+Q00628,2026-01-12T15:20:00Z,Line-D,Seal-Plate,Dimension Drift,Medium,12,Supplier Material
+Q00228,2026-01-12T08:08:00Z,Line-C,Pump-Housing,Dimension Drift,Medium,22,Setup Drift
+Q00194,2026-01-12T17:41:00Z,Line-B,Seal-Plate,Burr,Low,36,Sensor Fault
+Q00401,2026-01-12T05:19:00Z,Line-A,Seal-Plate,Dimension Drift,Medium,44,Tool Wear
+Q01261,2026-01-13T04:49:00Z,Line-D,Seal-Plate,Dimension Drift,Medium,22,Tool Wear
+Q01896,2026-01-13T04:47:00Z,Line-C,Pump-Housing,Burr,Low,14,Operator Method
+Q01743,2026-01-13T04:29:00Z,Line-C,Pump-Housing,Porosity,Medium,42,Supplier Material
+Q01195,2026-01-13T13:00:00Z,Line-B,Pump-Housing,Surface Scratch,Low,28,Supplier Material
+Q01522,2026-01-13T08:41:00Z,Line-C,Valve-Body,Thread Damage,Medium,30,Operator Method
+Q01791,2026-01-13T14:02:00Z,Line-D,Pump-Housing,Dimension Drift,Medium,14,Sensor Fault
+Q01652,2026-01-13T04:38:00Z,Line-D,Pump-Housing,Porosity,Medium,76,Setup Drift
+Q01587,2026-01-13T20:24:00Z,Line-D,Valve-Body,Coating Void,Medium,28,Operator Method
+Q01474,2026-01-13T18:13:00Z,Line-B,Seal-Plate,Coating Void,Medium,22,Setup Drift
+Q01962,2026-01-13T02:58:00Z,Line-B,Rotor-Core,Burr,Low,34,Tool Wear
+Q01894,2026-01-13T07:18:00Z,Line-C,Seal-Plate,Coating Void,Medium,76,Operator Method
+Q02617,2026-01-14T14:49:00Z,Line-C,Valve-Body,Dimension Drift,Medium,66,Setup Drift
+Q02133,2026-01-14T01:33:00Z,Line-A,Seal-Plate,Surface Scratch,Low,26,Setup Drift
+Q02329,2026-01-14T11:01:00Z,Line-C,Pump-Housing,Burr,Low,24,Supplier Material
+Q02444,2026-01-14T04:03:00Z,Line-B,Valve-Body,Seal Defect,High,84,Tool Wear
+Q02290,2026-01-14T10:00:00Z,Line-A,Valve-Body,Surface Scratch,Low,18,Setup Drift
+Q02854,2026-01-14T12:20:00Z,Line-C,Pump-Housing,Surface Scratch,Low,9,Operator Method
+Q02202,2026-01-14T15:22:00Z,Line-C,Pump-Housing,Burr,Low,34,Supplier Material
+Q02275,2026-01-14T19:21:00Z,Line-C,Valve-Body,Seal Defect,High,30,Setup Drift
+Q03959,2026-01-15T14:19:00Z,Line-C,Valve-Body,Surface Scratch,Low,8,Tool Wear
+Q03134,2026-01-15T13:55:00Z,Line-A,Rotor-Core,Thread Damage,Medium,72,Supplier Material
+Q03178,2026-01-15T09:51:00Z,Line-D,Pump-Housing,Surface Scratch,Low,29,Operator Method
+Q03548,2026-01-15T07:25:00Z,Line-B,Seal-Plate,Coating Void,Medium,50,Tool Wear
+Q03659,2026-01-15T01:19:00Z,Line-C,Seal-Plate,Surface Scratch,Low,21,Sensor Fault
+Q03567,2026-01-15T17:18:00Z,Line-A,Rotor-Core,Dimension Drift,Medium,10,Sensor Fault
+Q03376,2026-01-15T15:50:00Z,Line-A,Pump-Housing,Surface Scratch,Low,9,Supplier Material
+Q03130,2026-01-15T09:10:00Z,Line-D,Pump-Housing,Burr,Low,19,Tool Wear
+Q04266,2026-01-16T00:28:00Z,Line-A,Seal-Plate,Seal Defect,High,111,Tool Wear
+Q04199,2026-01-16T12:50:00Z,Line-C,Seal-Plate,Thread Damage,Medium,70,Supplier Material
+Q04790,2026-01-16T16:24:00Z,Line-C,Seal-Plate,Thread Damage,Medium,26,Sensor Fault
+Q04938,2026-01-16T18:53:00Z,Line-A,Pump-Housing,Seal Defect,High,111,Sensor Fault
+Q04694,2026-01-16T15:08:00Z,Line-B,Rotor-Core,Surface Scratch,Low,4,Setup Drift
+Q04939,2026-01-16T15:07:00Z,Line-D,Pump-Housing,Coating Void,Medium,46,Supplier Material
+Q04999,2026-01-16T07:57:00Z,Line-C,Pump-Housing,Coating Void,Medium,56,Operator Method
+Q04702,2026-01-16T22:29:00Z,Line-A,Pump-Housing,Coating Void,Medium,14,Operator Method
+Q04206,2026-01-16T15:15:00Z,Line-D,Seal-Plate,Dimension Drift,Medium,28,Tool Wear
+Q04212,2026-01-16T14:08:00Z,Line-B,Rotor-Core,Dimension Drift,Medium,72,Operator Method
+Q05236,2026-01-17T16:30:00Z,Line-C,Pump-Housing,Seal Defect,High,93,Sensor Fault
+Q05570,2026-01-17T07:45:00Z,Line-D,Rotor-Core,Porosity,Medium,32,Supplier Material
+Q05192,2026-01-17T09:41:00Z,Line-B,Pump-Housing,Burr,Low,12,Setup Drift
+Q05995,2026-01-17T03:15:00Z,Line-C,Pump-Housing,Burr,Low,9,Operator Method
+Q05231,2026-01-17T08:58:00Z,Line-C,Rotor-Core,Coating Void,Medium,68,Sensor Fault
+Q05859,2026-01-17T19:42:00Z,Line-B,Valve-Body,Coating Void,Medium,48,Supplier Material
+Q05138,2026-01-17T06:11:00Z,Line-D,Rotor-Core,Porosity,Medium,22,Sensor Fault
+Q05144,2026-01-17T21:04:00Z,Line-D,Pump-Housing,Coating Void,Medium,14,Sensor Fault
+Q05698,2026-01-17T23:48:00Z,Line-D,Valve-Body,Surface Scratch,Low,7,Supplier Material
+Q05754,2026-01-17T22:27:00Z,Line-A,Seal-Plate,Dimension Drift,Medium,14,Operator Method
+Q05552,2026-01-17T14:13:00Z,Line-A,Valve-Body,Porosity,Medium,64,Tool Wear
+Q06326,2026-01-18T07:53:00Z,Line-D,Valve-Body,Porosity,Medium,24,Tool Wear
+Q06849,2026-01-18T21:55:00Z,Line-C,Valve-Body,Coating Void,Medium,30,Supplier Material
+Q06457,2026-01-18T02:21:00Z,Line-A,Pump-Housing,Coating Void,Medium,16,Operator Method
+Q06932,2026-01-18T19:31:00Z,Line-D,Seal-Plate,Thread Damage,Medium,16,Tool Wear
+Q06983,2026-01-18T19:39:00Z,Line-C,Rotor-Core,Seal Defect,High,42,Tool Wear
+Q06739,2026-01-18T00:41:00Z,Line-D,Seal-Plate,Thread Damage,Medium,48,Sensor Fault
+Q06573,2026-01-18T06:54:00Z,Line-D,Pump-Housing,Burr,Low,17,Sensor Fault
+Q06683,2026-01-18T10:58:00Z,Line-D,Rotor-Core,Dimension Drift,Medium,14,Supplier Material
+Q06862,2026-01-18T02:44:00Z,Line-D,Pump-Housing,Burr,Low,23,Tool Wear
+Q06921,2026-01-18T19:32:00Z,Line-A,Rotor-Core,Surface Scratch,Low,26,Sensor Fault
+Q06408,2026-01-18T21:12:00Z,Line-B,Rotor-Core,Seal Defect,High,111,Tool Wear
+Q07447,2026-01-19T09:26:00Z,Line-D,Rotor-Core,Coating Void,Medium,44,Sensor Fault
+Q07391,2026-01-19T11:04:00Z,Line-B,Rotor-Core,Surface Scratch,Low,26,Operator Method
+Q07865,2026-01-19T01:22:00Z,Line-A,Valve-Body,Porosity,Medium,38,Sensor Fault
+Q07237,2026-01-19T03:39:00Z,Line-D,Rotor-Core,Surface Scratch,Low,33,Sensor Fault
+Q07941,2026-01-19T08:03:00Z,Line-A,Pump-Housing,Surface Scratch,Low,28,Supplier Material
+Q07564,2026-01-19T03:13:00Z,Line-D,Rotor-Core,Porosity,Medium,46,Sensor Fault
+Q07943,2026-01-19T06:56:00Z,Line-C,Pump-Housing,Coating Void,Medium,40,Sensor Fault
+Q07201,2026-01-19T18:51:00Z,Line-B,Valve-Body,Burr,Low,34,Sensor Fault
+Q07162,2026-01-19T18:00:00Z,Line-D,Seal-Plate,Thread Damage,Medium,24,Operator Method
+Q07140,2026-01-19T00:28:00Z,Line-A,Seal-Plate,Coating Void,Medium,42,Tool Wear
+Q07437,2026-01-19T10:46:00Z,Line-B,Seal-Plate,Porosity,Medium,60,Sensor Fault
+Q07804,2026-01-19T16:53:00Z,Line-C,Rotor-Core,Dimension Drift,Medium,44,Tool Wear
+Q08101,2026-01-20T12:23:00Z,Line-A,Pump-Housing,Porosity,Medium,32,Sensor Fault
+Q08150,2026-01-20T15:03:00Z,Line-C,Seal-Plate,Surface Scratch,Low,14,Supplier Material
+Q08118,2026-01-20T08:14:00Z,Line-B,Pump-Housing,Burr,Low,18,Setup Drift
+Q08476,2026-01-20T15:37:00Z,Line-C,Rotor-Core,Surface Scratch,Low,30,Setup Drift
+Q08130,2026-01-20T17:27:00Z,Line-C,Pump-Housing,Burr,Low,33,Setup Drift
+Q08803,2026-01-20T22:08:00Z,Line-B,Valve-Body,Porosity,Medium,48,Supplier Material
+Q08321,2026-01-20T04:32:00Z,Line-D,Pump-Housing,Surface Scratch,Low,10,Supplier Material
+Q08798,2026-01-20T06:04:00Z,Line-A,Pump-Housing,Porosity,Medium,44,Supplier Material
+Q08308,2026-01-20T02:55:00Z,Line-D,Valve-Body,Dimension Drift,Medium,12,Sensor Fault
+Q08647,2026-01-20T21:14:00Z,Line-C,Pump-Housing,Burr,Low,26,Setup Drift
+Q08550,2026-01-20T14:06:00Z,Line-A,Valve-Body,Thread Damage,Medium,40,Sensor Fault
+Q08103,2026-01-20T12:52:00Z,Line-D,Valve-Body,Thread Damage,Medium,40,Operator Method
+Q08303,2026-01-20T04:44:00Z,Line-A,Seal-Plate,Surface Scratch,Low,18,Supplier Material
+Q08810,2026-01-20T07:35:00Z,Line-C,Seal-Plate,Burr,Low,36,Tool Wear
+Q09837,2026-01-21T03:03:00Z,Line-D,Valve-Body,Coating Void,Medium,66,Setup Drift
+Q09104,2026-01-21T02:46:00Z,Line-B,Valve-Body,Surface Scratch,Low,17,Operator Method
+Q09526,2026-01-21T02:22:00Z,Line-A,Pump-Housing,Thread Damage,Medium,68,Setup Drift
+Q09758,2026-01-21T09:08:00Z,Line-B,Rotor-Core,Burr,Low,20,Operator Method
+Q09129,2026-01-21T04:25:00Z,Line-B,Seal-Plate,Surface Scratch,Low,37,Setup Drift
+Q09424,2026-01-21T15:53:00Z,Line-C,Valve-Body,Coating Void,Medium,34,Tool Wear
+Q09549,2026-01-21T14:48:00Z,Line-B,Rotor-Core,Surface Scratch,Low,34,Supplier Material
+Q09875,2026-01-21T13:49:00Z,Line-B,Rotor-Core,Thread Damage,Medium,44,Supplier Material
+Q09734,2026-01-21T19:35:00Z,Line-B,Pump-Housing,Burr,Low,36,Supplier Material
+Q09591,2026-01-21T14:05:00Z,Line-B,Pump-Housing,Thread Damage,Medium,60,Operator Method
+Q09908,2026-01-21T14:32:00Z,Line-A,Seal-Plate,Surface Scratch,Low,7,Setup Drift
+Q09240,2026-01-21T21:29:00Z,Line-A,Pump-Housing,Coating Void,Medium,16,Operator Method
+Q10724,2026-01-22T04:06:00Z,Line-A,Seal-Plate,Thread Damage,Medium,16,Sensor Fault
+Q10959,2026-01-22T21:10:00Z,Line-A,Pump-Housing,Thread Damage,Medium,42,Setup Drift
+Q10705,2026-01-22T11:27:00Z,Line-A,Rotor-Core,Burr,Low,12,Setup Drift
+Q10518,2026-01-22T01:13:00Z,Line-B,Seal-Plate,Seal Defect,High,78,Setup Drift
+Q10194,2026-01-22T06:01:00Z,Line-D,Valve-Body,Surface Scratch,Low,5,Tool Wear
+Q10290,2026-01-22T11:36:00Z,Line-B,Rotor-Core,Dimension Drift,Medium,38,Sensor Fault
+Q10364,2026-01-22T17:18:00Z,Line-B,Rotor-Core,Dimension Drift,Medium,32,Setup Drift
+Q10915,2026-01-22T17:37:00Z,Line-A,Rotor-Core,Burr,Low,20,Tool Wear
+Q11347,2026-01-23T01:37:00Z,Line-A,Pump-Housing,Seal Defect,High,57,Setup Drift
+Q11379,2026-01-23T21:09:00Z,Line-B,Rotor-Core,Thread Damage,Medium,66,Tool Wear
+Q11718,2026-01-23T20:53:00Z,Line-B,Valve-Body,Coating Void,Medium,30,Sensor Fault
+Q11718,2026-01-23T19:20:00Z,Line-C,Valve-Body,Burr,Low,28,Operator Method
+Q11780,2026-01-23T05:46:00Z,Line-A,Valve-Body,Thread Damage,Medium,36,Supplier Material
+Q11630,2026-01-23T03:27:00Z,Line-A,Valve-Body,Porosity,Medium,44,Sensor Fault
+Q11226,2026-01-23T17:38:00Z,Line-D,Rotor-Core,Porosity,Medium,44,Tool Wear
+Q11630,2026-01-23T09:01:00Z,Line-D,Seal-Plate,Seal Defect,High,87,Setup Drift
+Q11798,2026-01-23T19:05:00Z,Line-C,Valve-Body,Coating Void,Medium,36,Tool Wear
+Q11636,2026-01-23T06:42:00Z,Line-B,Seal-Plate,Burr,Low,15,Operator Method
+Q11575,2026-01-23T19:09:00Z,Line-B,Rotor-Core,Dimension Drift,Medium,72,Tool Wear
+Q11662,2026-01-23T18:59:00Z,Line-B,Rotor-Core,Dimension Drift,Medium,42,Supplier Material
+Q11852,2026-01-23T11:48:00Z,Line-B,Rotor-Core,Surface Scratch,Low,35,Setup Drift
+Q11736,2026-01-23T16:31:00Z,Line-B,Seal-Plate,Seal Defect,High,75,Operator Method
+Q12901,2026-01-24T03:01:00Z,Line-D,Seal-Plate,Dimension Drift,Medium,36,Sensor Fault
+Q12783,2026-01-24T20:43:00Z,Line-C,Pump-Housing,Seal Defect,High,81,Sensor Fault
+Q12844,2026-01-24T22:03:00Z,Line-D,Valve-Body,Surface Scratch,Low,34,Operator Method
+Q12269,2026-01-24T16:39:00Z,Line-A,Valve-Body,Dimension Drift,Medium,46,Setup Drift
+Q12327,2026-01-24T22:11:00Z,Line-C,Pump-Housing,Porosity,Medium,74,Operator Method
+Q12179,2026-01-24T00:35:00Z,Line-D,Valve-Body,Porosity,Medium,64,Supplier Material
+Q12728,2026-01-24T11:28:00Z,Line-D,Pump-Housing,Dimension Drift,Medium,22,Sensor Fault
+Q12713,2026-01-24T19:27:00Z,Line-C,Rotor-Core,Dimension Drift,Medium,32,Sensor Fault
+Q13599,2026-01-25T18:02:00Z,Line-C,Rotor-Core,Coating Void,Medium,38,Operator Method
+Q13548,2026-01-25T05:28:00Z,Line-B,Seal-Plate,Porosity,Medium,34,Supplier Material
+Q13734,2026-01-25T19:56:00Z,Line-D,Valve-Body,Dimension Drift,Medium,66,Setup Drift
+Q13469,2026-01-25T19:43:00Z,Line-C,Seal-Plate,Seal Defect,High,75,Operator Method
+Q13491,2026-01-25T15:43:00Z,Line-D,Seal-Plate,Dimension Drift,Medium,40,Operator Method
+Q13661,2026-01-25T13:36:00Z,Line-D,Valve-Body,Porosity,Medium,74,Setup Drift
+Q13226,2026-01-25T23:12:00Z,Line-A,Pump-Housing,Burr,Low,26,Supplier Material
+Q13207,2026-01-25T00:50:00Z,Line-D,Pump-Housing,Porosity,Medium,70,Setup Drift
+Q13500,2026-01-25T10:00:00Z,Line-C,Seal-Plate,Coating Void,Medium,14,Operator Method
+Q13704,2026-01-25T19:41:00Z,Line-A,Pump-Housing,Coating Void,Medium,38,Sensor Fault
+Q13591,2026-01-25T07:30:00Z,Line-A,Seal-Plate,Dimension Drift,Medium,54,Operator Method
+Q13603,2026-01-25T15:14:00Z,Line-D,Rotor-Core,Porosity,Medium,28,Setup Drift
+Q14156,2026-01-26T01:05:00Z,Line-B,Rotor-Core,Seal Defect,High,57,Sensor Fault
+Q14111,2026-01-26T12:44:00Z,Line-C,Pump-Housing,Burr,Low,18,Supplier Material
+Q14621,2026-01-26T07:30:00Z,Line-B,Rotor-Core,Surface Scratch,Low,16,Tool Wear
+Q14212,2026-01-26T23:41:00Z,Line-A,Pump-Housing,Burr,Low,6,Sensor Fault
+Q14435,2026-01-26T00:12:00Z,Line-B,Seal-Plate,Dimension Drift,Medium,64,Sensor Fault
+Q14303,2026-01-26T19:14:00Z,Line-D,Valve-Body,Surface Scratch,Low,38,Tool Wear
+Q14619,2026-01-26T03:54:00Z,Line-B,Valve-Body,Porosity,Medium,18,Sensor Fault
+Q14479,2026-01-26T17:16:00Z,Line-D,Seal-Plate,Dimension Drift,Medium,8,Supplier Material
+Q14227,2026-01-26T00:31:00Z,Line-D,Rotor-Core,Surface Scratch,Low,20,Operator Method
+Q14965,2026-01-26T10:04:00Z,Line-D,Valve-Body,Seal Defect,High,78,Supplier Material
+Q14624,2026-01-26T00:50:00Z,Line-B,Seal-Plate,Surface Scratch,Low,23,Sensor Fault
+Q14353,2026-01-26T08:56:00Z,Line-C,Seal-Plate,Surface Scratch,Low,5,Sensor Fault
+Q15603,2026-01-27T16:50:00Z,Line-D,Rotor-Core,Dimension Drift,Medium,20,Supplier Material
+Q15856,2026-01-27T13:38:00Z,Line-C,Valve-Body,Surface Scratch,Low,9,Sensor Fault
+Q15326,2026-01-27T20:57:00Z,Line-B,Pump-Housing,Burr,Low,29,Setup Drift
+Q15883,2026-01-27T17:19:00Z,Line-D,Valve-Body,Dimension Drift,Medium,8,Tool Wear
+Q15561,2026-01-27T17:49:00Z,Line-B,Pump-Housing,Surface Scratch,Low,8,Sensor Fault
+Q15919,2026-01-27T07:29:00Z,Line-B,Valve-Body,Seal Defect,High,15,Setup Drift
+Q15637,2026-01-27T02:49:00Z,Line-D,Seal-Plate,Porosity,Medium,44,Operator Method
+Q15520,2026-01-27T20:40:00Z,Line-D,Rotor-Core,Seal Defect,High,102,Setup Drift
+Q15353,2026-01-27T02:52:00Z,Line-A,Pump-Housing,Thread Damage,Medium,74,Supplier Material
+Q15662,2026-01-27T07:40:00Z,Line-D,Rotor-Core,Seal Defect,High,39,Operator Method
+Q15241,2026-01-27T07:11:00Z,Line-C,Seal-Plate,Dimension Drift,Medium,8,Supplier Material
+Q16886,2026-01-28T14:04:00Z,Line-D,Seal-Plate,Surface Scratch,Low,5,Operator Method
+Q16313,2026-01-28T16:41:00Z,Line-C,Seal-Plate,Dimension Drift,Medium,48,Setup Drift
+Q16472,2026-01-28T17:51:00Z,Line-C,Pump-Housing,Seal Defect,High,93,Supplier Material
+Q16176,2026-01-28T20:30:00Z,Line-A,Rotor-Core,Seal Defect,High,36,Tool Wear
+Q16405,2026-01-28T20:56:00Z,Line-C,Valve-Body,Porosity,Medium,16,Sensor Fault
+Q16607,2026-01-28T03:48:00Z,Line-C,Rotor-Core,Surface Scratch,Low,18,Setup Drift
+Q16694,2026-01-28T14:16:00Z,Line-D,Seal-Plate,Thread Damage,Medium,14,Operator Method
+Q16634,2026-01-28T23:04:00Z,Line-C,Pump-Housing,Seal Defect,High,45,Sensor Fault
+Q16450,2026-01-28T11:43:00Z,Line-D,Valve-Body,Surface Scratch,Low,6,Setup Drift
+Q16361,2026-01-28T16:40:00Z,Line-D,Valve-Body,Porosity,Medium,42,Operator Method
+Q16252,2026-01-28T01:22:00Z,Line-C,Valve-Body,Seal Defect,High,90,Tool Wear
+Q16565,2026-01-28T12:01:00Z,Line-D,Valve-Body,Coating Void,Medium,74,Sensor Fault
+Q17861,2026-01-29T21:20:00Z,Line-B,Valve-Body,Dimension Drift,Medium,52,Operator Method
+Q17849,2026-01-29T21:25:00Z,Line-A,Valve-Body,Porosity,Medium,18,Supplier Material
+Q17442,2026-01-29T12:23:00Z,Line-C,Rotor-Core,Surface Scratch,Low,19,Setup Drift
+Q17397,2026-01-29T05:10:00Z,Line-C,Rotor-Core,Surface Scratch,Low,9,Setup Drift
+Q17822,2026-01-29T13:59:00Z,Line-D,Rotor-Core,Porosity,Medium,20,Operator Method
+Q17170,2026-01-29T14:26:00Z,Line-A,Rotor-Core,Porosity,Medium,66,Sensor Fault
+Q17107,2026-01-29T10:25:00Z,Line-D,Pump-Housing,Seal Defect,High,81,Operator Method
+Q17747,2026-01-29T00:31:00Z,Line-A,Valve-Body,Coating Void,Medium,14,Supplier Material
+Q17523,2026-01-29T07:43:00Z,Line-D,Valve-Body,Seal Defect,High,39,Supplier Material
+Q17456,2026-01-29T16:19:00Z,Line-C,Valve-Body,Thread Damage,Medium,50,Tool Wear
+Q18943,2026-01-30T23:42:00Z,Line-C,Seal-Plate,Coating Void,Medium,18,Tool Wear
+Q18485,2026-01-30T19:03:00Z,Line-C,Valve-Body,Coating Void,Medium,30,Setup Drift
+Q18481,2026-01-30T13:18:00Z,Line-A,Valve-Body,Coating Void,Medium,22,Tool Wear
+Q18243,2026-01-30T23:31:00Z,Line-D,Valve-Body,Burr,Low,38,Supplier Material
+Q18804,2026-01-30T13:50:00Z,Line-C,Rotor-Core,Seal Defect,High,108,Supplier Material
+Q18498,2026-01-30T00:44:00Z,Line-B,Pump-Housing,Thread Damage,Medium,12,Operator Method
+Q18828,2026-01-30T16:34:00Z,Line-A,Seal-Plate,Thread Damage,Medium,26,Supplier Material
+Q18715,2026-01-30T13:34:00Z,Line-B,Seal-Plate,Porosity,Medium,42,Tool Wear
+Q18794,2026-01-30T05:41:00Z,Line-A,Pump-Housing,Surface Scratch,Low,32,Supplier Material
+Q18590,2026-01-30T18:07:00Z,Line-C,Rotor-Core,Thread Damage,Medium,56,Setup Drift
+Q18446,2026-01-30T10:33:00Z,Line-D,Seal-Plate,Thread Damage,Medium,44,Tool Wear
+Q18495,2026-01-30T11:03:00Z,Line-C,Pump-Housing,Coating Void,Medium,12,Sensor Fault
+Q19914,2026-01-31T21:56:00Z,Line-D,Pump-Housing,Burr,Low,31,Supplier Material
+Q19943,2026-01-31T14:41:00Z,Line-D,Seal-Plate,Coating Void,Medium,34,Operator Method
+Q19821,2026-01-31T07:33:00Z,Line-B,Valve-Body,Thread Damage,Medium,14,Operator Method
+Q19889,2026-01-31T19:21:00Z,Line-D,Seal-Plate,Coating Void,Medium,72,Operator Method
+Q19273,2026-01-31T14:01:00Z,Line-C,Valve-Body,Coating Void,Medium,66,Tool Wear
+Q19181,2026-01-31T16:39:00Z,Line-A,Seal-Plate,Coating Void,Medium,66,Supplier Material
+Q19423,2026-01-31T16:03:00Z,Line-B,Seal-Plate,Surface Scratch,Low,15,Sensor Fault
+Q19766,2026-01-31T01:54:00Z,Line-B,Seal-Plate,Seal Defect,High,84,Tool Wear
+Q19571,2026-01-31T05:55:00Z,Line-B,Valve-Body,Seal Defect,High,45,Operator Method
+Q19424,2026-01-31T08:31:00Z,Line-A,Pump-Housing,Porosity,Medium,28,Setup Drift
+Q19567,2026-01-31T08:46:00Z,Line-B,Pump-Housing,Coating Void,Medium,62,Sensor Fault
+Q19171,2026-01-31T14:47:00Z,Line-C,Pump-Housing,Coating Void,Medium,46,Sensor Fault
+Q19279,2026-01-31T01:07:00Z,Line-A,Valve-Body,Porosity,Medium,46,Tool Wear
+Q19744,2026-01-31T11:46:00Z,Line-A,Seal-Plate,Coating Void,Medium,22,Operator Method
+Q20364,2026-02-01T21:40:00Z,Line-A,Seal-Plate,Coating Void,Medium,36,Setup Drift
+Q20952,2026-02-01T12:48:00Z,Line-B,Rotor-Core,Surface Scratch,Low,4,Tool Wear
+Q20880,2026-02-01T23:10:00Z,Line-D,Rotor-Core,Surface Scratch,Low,18,Setup Drift
+Q20363,2026-02-01T02:29:00Z,Line-A,Pump-Housing,Thread Damage,Medium,18,Sensor Fault
+Q20614,2026-02-01T23:47:00Z,Line-D,Pump-Housing,Coating Void,Medium,64,Operator Method
+Q20701,2026-02-01T13:28:00Z,Line-D,Valve-Body,Porosity,Medium,50,Supplier Material
+Q20890,2026-02-01T14:57:00Z,Line-A,Rotor-Core,Surface Scratch,Low,26,Sensor Fault
+Q20877,2026-02-01T14:39:00Z,Line-B,Valve-Body,Coating Void,Medium,74,Operator Method
+Q21665,2026-02-02T08:23:00Z,Line-A,Rotor-Core,Coating Void,Medium,44,Tool Wear
+Q21905,2026-02-02T21:48:00Z,Line-A,Rotor-Core,Thread Damage,Medium,24,Operator Method
+Q21745,2026-02-02T00:19:00Z,Line-A,Rotor-Core,Surface Scratch,Low,17,Operator Method
+Q21762,2026-02-02T13:03:00Z,Line-A,Seal-Plate,Porosity,Medium,10,Sensor Fault
+Q21231,2026-02-02T14:33:00Z,Line-B,Valve-Body,Burr,Low,23,Sensor Fault
+Q21699,2026-02-02T15:16:00Z,Line-C,Valve-Body,Dimension Drift,Medium,68,Sensor Fault
+Q21708,2026-02-02T13:16:00Z,Line-D,Rotor-Core,Dimension Drift,Medium,34,Supplier Material
+Q21741,2026-02-02T11:00:00Z,Line-B,Valve-Body,Dimension Drift,Medium,52,Setup Drift
+Q21879,2026-02-02T03:43:00Z,Line-D,Rotor-Core,Coating Void,Medium,56,Supplier Material
+Q22992,2026-02-03T01:15:00Z,Line-C,Rotor-Core,Burr,Low,28,Sensor Fault
+Q22671,2026-02-03T00:27:00Z,Line-B,Seal-Plate,Dimension Drift,Medium,56,Tool Wear
+Q22125,2026-02-03T09:30:00Z,Line-C,Pump-Housing,Burr,Low,22,Sensor Fault
+Q22576,2026-02-03T02:40:00Z,Line-B,Rotor-Core,Burr,Low,9,Tool Wear
+Q22174,2026-02-03T09:49:00Z,Line-B,Seal-Plate,Burr,Low,36,Sensor Fault
+Q22501,2026-02-03T05:38:00Z,Line-D,Seal-Plate,Porosity,Medium,18,Supplier Material
+Q22877,2026-02-03T23:39:00Z,Line-A,Pump-Housing,Burr,Low,29,Tool Wear
+Q22342,2026-02-03T03:30:00Z,Line-B,Seal-Plate,Surface Scratch,Low,18,Setup Drift
+Q22112,2026-02-03T11:50:00Z,Line-D,Pump-Housing,Porosity,Medium,54,Tool Wear
+Q22702,2026-02-03T13:40:00Z,Line-D,Valve-Body,Dimension Drift,Medium,14,Operator Method
+Q23465,2026-02-04T04:00:00Z,Line-A,Rotor-Core,Coating Void,Medium,72,Setup Drift
+Q23699,2026-02-04T12:32:00Z,Line-B,Seal-Plate,Coating Void,Medium,76,Sensor Fault
+Q23592,2026-02-04T09:25:00Z,Line-D,Valve-Body,Coating Void,Medium,14,Setup Drift
+Q23197,2026-02-04T12:18:00Z,Line-D,Valve-Body,Coating Void,Medium,12,Operator Method
+Q23726,2026-02-04T02:40:00Z,Line-B,Seal-Plate,Surface Scratch,Low,15,Setup Drift
+Q23687,2026-02-04T17:16:00Z,Line-B,Pump-Housing,Coating Void,Medium,26,Sensor Fault
+Q23655,2026-02-04T06:15:00Z,Line-B,Rotor-Core,Seal Defect,High,15,Setup Drift
+Q23741,2026-02-04T09:43:00Z,Line-C,Valve-Body,Seal Defect,High,108,Operator Method
+Q23158,2026-02-04T07:31:00Z,Line-C,Seal-Plate,Burr,Low,20,Tool Wear
+Q23249,2026-02-04T20:56:00Z,Line-D,Pump-Housing,Porosity,Medium,42,Operator Method
+Q23416,2026-02-04T12:27:00Z,Line-A,Valve-Body,Dimension Drift,Medium,30,Operator Method
+Q24426,2026-02-05T00:28:00Z,Line-B,Seal-Plate,Seal Defect,High,102,Setup Drift
+Q24870,2026-02-05T15:51:00Z,Line-C,Pump-Housing,Surface Scratch,Low,26,Supplier Material
+Q24926,2026-02-05T04:47:00Z,Line-B,Seal-Plate,Porosity,Medium,52,Operator Method
+Q24357,2026-02-05T03:18:00Z,Line-D,Seal-Plate,Coating Void,Medium,10,Tool Wear
+Q24809,2026-02-05T19:33:00Z,Line-D,Pump-Housing,Burr,Low,27,Operator Method
+Q24646,2026-02-05T19:51:00Z,Line-C,Rotor-Core,Coating Void,Medium,66,Setup Drift
+Q24326,2026-02-05T06:03:00Z,Line-C,Seal-Plate,Seal Defect,High,69,Tool Wear
+Q24609,2026-02-05T10:13:00Z,Line-D,Rotor-Core,Porosity,Medium,58,Tool Wear
+Q25730,2026-02-06T12:21:00Z,Line-D,Valve-Body,Burr,Low,38,Sensor Fault
+Q25366,2026-02-06T20:32:00Z,Line-D,Pump-Housing,Dimension Drift,Medium,62,Setup Drift
+Q25708,2026-02-06T01:14:00Z,Line-D,Valve-Body,Surface Scratch,Low,18,Setup Drift
+Q25168,2026-02-06T18:56:00Z,Line-A,Rotor-Core,Coating Void,Medium,18,Setup Drift
+Q25400,2026-02-06T19:01:00Z,Line-C,Rotor-Core,Thread Damage,Medium,70,Setup Drift
+Q25857,2026-02-06T05:33:00Z,Line-C,Rotor-Core,Burr,Low,23,Supplier Material
+Q25795,2026-02-06T03:11:00Z,Line-C,Rotor-Core,Dimension Drift,Medium,40,Setup Drift
+Q25934,2026-02-06T01:05:00Z,Line-B,Pump-Housing,Surface Scratch,Low,33,Sensor Fault
+Q25647,2026-02-06T01:17:00Z,Line-A,Pump-Housing,Dimension Drift,Medium,18,Sensor Fault
+Q25603,2026-02-06T19:47:00Z,Line-A,Pump-Housing,Dimension Drift,Medium,26,Setup Drift
+Q25907,2026-02-06T17:12:00Z,Line-B,Rotor-Core,Surface Scratch,Low,6,Sensor Fault
+Q25699,2026-02-06T01:38:00Z,Line-C,Pump-Housing,Porosity,Medium,18,Tool Wear
+Q25441,2026-02-06T01:20:00Z,Line-B,Pump-Housing,Porosity,Medium,60,Tool Wear
+Q26626,2026-02-07T02:52:00Z,Line-C,Valve-Body,Coating Void,Medium,24,Sensor Fault
+Q26334,2026-02-07T19:53:00Z,Line-D,Valve-Body,Porosity,Medium,24,Tool Wear
+Q26761,2026-02-07T17:14:00Z,Line-A,Seal-Plate,Burr,Low,26,Sensor Fault
+Q26632,2026-02-07T04:07:00Z,Line-D,Pump-Housing,Dimension Drift,Medium,36,Tool Wear
+Q26231,2026-02-07T22:45:00Z,Line-A,Pump-Housing,Burr,Low,29,Tool Wear
+Q26657,2026-02-07T09:57:00Z,Line-D,Seal-Plate,Surface Scratch,Low,37,Supplier Material
+Q26855,2026-02-07T11:32:00Z,Line-C,Pump-Housing,Porosity,Medium,38,Setup Drift
+Q26593,2026-02-07T00:12:00Z,Line-D,Valve-Body,Dimension Drift,Medium,60,Operator Method
+Q26949,2026-02-07T06:37:00Z,Line-D,Seal-Plate,Thread Damage,Medium,40,Supplier Material
+Q26358,2026-02-07T02:46:00Z,Line-A,Rotor-Core,Surface Scratch,Low,17,Tool Wear
+Q26690,2026-02-07T10:01:00Z,Line-D,Pump-Housing,Porosity,Medium,52,Setup Drift
+Q26877,2026-02-07T07:54:00Z,Line-B,Pump-Housing,Dimension Drift,Medium,30,Setup Drift
+Q26680,2026-02-07T01:12:00Z,Line-D,Valve-Body,Burr,Low,24,Tool Wear
+Q27538,2026-02-08T01:01:00Z,Line-C,Pump-Housing,Dimension Drift,Medium,30,Supplier Material
+Q27994,2026-02-08T11:39:00Z,Line-B,Seal-Plate,Porosity,Medium,8,Supplier Material
+Q27215,2026-02-08T01:11:00Z,Line-C,Seal-Plate,Seal Defect,High,75,Supplier Material
+Q27228,2026-02-08T07:48:00Z,Line-C,Rotor-Core,Porosity,Medium,20,Tool Wear
+Q27640,2026-02-08T18:40:00Z,Line-A,Seal-Plate,Thread Damage,Medium,36,Sensor Fault
+Q27744,2026-02-08T03:31:00Z,Line-B,Pump-Housing,Dimension Drift,Medium,30,Tool Wear
+Q27773,2026-02-08T19:05:00Z,Line-C,Pump-Housing,Burr,Low,17,Supplier Material
+Q27610,2026-02-08T10:49:00Z,Line-D,Pump-Housing,Coating Void,Medium,76,Sensor Fault
+Q28279,2026-02-09T00:25:00Z,Line-C,Rotor-Core,Seal Defect,High,57,Tool Wear
+Q28937,2026-02-09T12:40:00Z,Line-D,Valve-Body,Burr,Low,31,Tool Wear
+Q28196,2026-02-09T08:48:00Z,Line-D,Seal-Plate,Thread Damage,Medium,44,Sensor Fault
+Q28945,2026-02-09T19:08:00Z,Line-C,Seal-Plate,Seal Defect,High,84,Operator Method
+Q28181,2026-02-09T08:44:00Z,Line-C,Valve-Body,Thread Damage,Medium,74,Supplier Material
+Q28594,2026-02-09T18:56:00Z,Line-C,Seal-Plate,Porosity,Medium,24,Operator Method
+Q28804,2026-02-09T23:59:00Z,Line-C,Rotor-Core,Seal Defect,High,84,Supplier Material
+Q28822,2026-02-09T07:53:00Z,Line-C,Valve-Body,Burr,Low,12,Setup Drift
+Q28830,2026-02-09T00:05:00Z,Line-C,Seal-Plate,Dimension Drift,Medium,40,Tool Wear
+Q28574,2026-02-09T03:46:00Z,Line-C,Pump-Housing,Surface Scratch,Low,28,Operator Method
+Q28399,2026-02-09T06:08:00Z,Line-D,Valve-Body,Surface Scratch,Low,7,Supplier Material
+Q28841,2026-02-09T23:25:00Z,Line-D,Pump-Housing,Coating Void,Medium,18,Operator Method
+Q28197,2026-02-09T03:58:00Z,Line-B,Pump-Housing,Porosity,Medium,54,Tool Wear
+Q29749,2026-02-10T06:21:00Z,Line-B,Seal-Plate,Dimension Drift,Medium,16,Setup Drift
+Q29726,2026-02-10T14:03:00Z,Line-D,Valve-Body,Burr,Low,25,Sensor Fault
+Q29827,2026-02-10T07:26:00Z,Line-B,Seal-Plate,Dimension Drift,Medium,14,Supplier Material
+Q29617,2026-02-10T10:05:00Z,Line-A,Rotor-Core,Surface Scratch,Low,22,Sensor Fault
+Q29463,2026-02-10T01:45:00Z,Line-A,Valve-Body,Dimension Drift,Medium,38,Supplier Material
+Q29763,2026-02-10T05:35:00Z,Line-A,Seal-Plate,Surface Scratch,Low,33,Sensor Fault
+Q29204,2026-02-10T08:53:00Z,Line-A,Pump-Housing,Porosity,Medium,36,Sensor Fault
+Q29703,2026-02-10T22:56:00Z,Line-C,Seal-Plate,Surface Scratch,Low,22,Tool Wear
+Q29745,2026-02-10T12:38:00Z,Line-C,Pump-Housing,Coating Void,Medium,52,Supplier Material
+Q29744,2026-02-10T02:14:00Z,Line-C,Pump-Housing,Seal Defect,High,81,Tool Wear
+Q29478,2026-02-10T06:33:00Z,Line-B,Seal-Plate,Burr,Low,14,Setup Drift
+Q29343,2026-02-10T11:09:00Z,Line-C,Pump-Housing,Thread Damage,Medium,44,Tool Wear
