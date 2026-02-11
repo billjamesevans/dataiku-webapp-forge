@@ -92,19 +92,7 @@ function updatePager() {
 
 function updateHeader(meta) {
   var parts = [];
-  if (meta && meta.dataset_a) parts.push('A: ' + meta.dataset_a);
-  if (meta && meta.dataset_b) parts.push('B: ' + meta.dataset_b);
-  if (meta && meta.dataset_c) parts.push('C: ' + meta.dataset_c);
-  if (meta && meta.joins && meta.joins.length) {
-    var js = [];
-    for (var i = 0; i < meta.joins.length; i++) {
-      var j = meta.joins[i];
-      if (j && j.enabled) js.push(String((j.right || '').toUpperCase()) + '(' + String(j.how || 'left') + ')');
-    }
-    if (js.length) parts.push('Joins: ' + js.join(', '));
-  } else if (meta && meta.join_enabled) {
-    parts.push('Join: ' + (meta.join_how || 'left'));
-  }
+  if (meta && meta.dataset_a) parts.push('Dataset: ' + meta.dataset_a);
   $('#sourceInfo').text(parts.length ? parts.join(' | ') : '');
   $('#metaInfo').text((meta && meta.note) ? meta.note : '');
 }
@@ -132,7 +120,6 @@ function buildSideFilters(meta) {
     html += '</div>';
   }
   $('#sideFilters').html(html);
-  // restore selections
   for (var k = 0; k < keys.length; k++) {
     var c = keys[k];
     if (SIDE_FILTERS[c]) {
@@ -174,29 +161,6 @@ function renderRows(rows) {
   updateCount(VIEW_ROWS.length);
 }
 
-function renderBTable(meta) {
-  if (TEMPLATE !== 'two_tables') return;
-  var bs = meta.b_sample;
-  if (!bs || !bs.columns || !bs.rows) {
-    $('#bTableHead').html('<tr><th>No Dataset B sample</th></tr>');
-    $('#bTableBody').html('<tr><td class="table-empty">No data.</td></tr>');
-    return;
-  }
-  var cols = bs.columns || [];
-  var rows = bs.rows || [];
-  var head = '<tr>';
-  for (var i = 0; i < cols.length; i++) head += '<th>' + escapeHtml(cols[i].label || cols[i].name) + '</th>';
-  head += '</tr>';
-  $('#bTableHead').html(head);
-  var body = '';
-  for (var r = 0; r < rows.length; r++) {
-    body += '<tr>';
-    for (var c = 0; c < cols.length; c++) body += '<td>' + escapeHtml(rows[r][cols[c].name]) + '</td>';
-    body += '</tr>';
-  }
-  $('#bTableBody').html(body);
-}
-
 function applySearch() {
   var q = $.trim($('#searchInput').val() || '').toLowerCase();
   if (!q) {
@@ -218,7 +182,6 @@ function applySearch() {
 }
 
 function renderDetailsTo(targetSelector, rowIdx) {
-  var ui = (META && META.ui) || {};
   var row = VIEW_ROWS[rowIdx];
   if (!row) return;
 
@@ -260,7 +223,6 @@ function buildRowsUrl() {
     qs.push('offset=' + encodeURIComponent(String(OFFSET || 0)));
     qs.push('limit=' + encodeURIComponent(String(LIMIT || 200)));
   }
-  // Sidebar filters -> backend query params: ff_<col>=value
   var keys = Object.keys(SIDE_FILTERS || {});
   for (var i = 0; i < keys.length; i++) {
     var k = keys[i];
@@ -295,7 +257,6 @@ function loadRows() {
       buildTableHead(META);
       updateHeader(META);
       buildSideFilters(META);
-      renderBTable(META);
       updatePager();
       renderChart(META);
       applySearch();
@@ -327,7 +288,6 @@ function renderChart(meta) {
     return m;
   }
 
-  // Bar + hist (rendered similarly)
   if (type === 'bar' || type === 'hist') {
     if (!labels.length || !values.length) {
       $('#chart').html('');
@@ -353,7 +313,6 @@ function renderChart(meta) {
     return;
   }
 
-  // Line chart (labels + values)
   if (type === 'line') {
     if (!labels.length || !values.length) {
       $('#chart').html('');
@@ -386,7 +345,6 @@ function renderChart(meta) {
       var y3 = padT + Math.round(plotH - (yv3 / vmax) * plotH);
       svg2 += '<circle cx="' + x3 + '" cy="' + y3 + '" r="3" fill="#2563eb" opacity="0.85"></circle>';
     }
-    // a few x labels
     var step = Math.max(1, Math.floor(n / 6));
     for (var i4 = 0; i4 < n; i4 += step) {
       var x4 = padL + (n === 1 ? 0 : Math.round((i4 / (n - 1)) * plotW));
@@ -397,7 +355,6 @@ function renderChart(meta) {
     return;
   }
 
-  // Scatter plot
   if (type === 'scatter') {
     var points = chart.points || [];
     if (!points.length) {
@@ -435,7 +392,6 @@ function renderChart(meta) {
     return;
   }
 
-  // Unknown chart type
   $('#chart').html('');
   $('#chartEmpty').show();
 }
@@ -483,13 +439,5 @@ $(function () {
     SIDE_FILTERS = {};
     OFFSET = 0;
     loadRows();
-  });
-
-  $('.tabs2').on('click', '.tab2', function () {
-    var tab = $(this).attr('data-tab');
-    $('.tab2').removeClass('active');
-    $(this).addClass('active');
-    $('.tabpanel').removeClass('active');
-    $('.tabpanel[data-tabpanel=\"' + tab + '\"]').addClass('active');
   });
 });

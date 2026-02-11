@@ -1,7 +1,7 @@
 # dataiku-webapp-forge
 
 Local Flask "generator" app that helps teams create simple Dataiku Standard WebApps from CSV exports (schema capture),
-with optional join/filter/computed columns/templates, and then exports Dataiku-ready:
+with filter/computed columns/templates, and then exports Dataiku-ready:
 
 - `index.html` (body-only for Dataiku Standard WebApps)
 - `style.css`, `script.js`

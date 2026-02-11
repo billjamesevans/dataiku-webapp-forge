@@ -1,17 +1,16 @@
+import json
 import os
 import time
-import json
 from datetime import datetime
 
-import pandas as pd
 import dataiku
+import pandas as pd
 from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
 # --- Configuration ---
-# This backend prefers loading config from a JSON file in the webapp folder.
-# This keeps backend.py stable across regenerations (less churn) and makes manual tweaks easier.
+# Prefer loading config.json from the webapp folder to keep backend.py stable across regenerations.
 _EMBEDDED_CONFIG_JSON = r'''{{ {
   "app": {"name": app_name, "subtitle": subtitle or ""},
   "dataiku": project.get("dataiku") or {},
@@ -21,8 +20,7 @@ _EMBEDDED_CONFIG_JSON = r'''{{ {
 } | tojson(indent=2) }}'''
 
 
-def _load_config() -> dict:
-    # Search paths: alongside this file (Dataiku), then cwd (local preview).
+def _load_config():
     base_dirs = []
     try:
         base_dirs.append(os.path.dirname(__file__))
@@ -38,7 +36,6 @@ def _load_config() -> dict:
                     with open(path, "r", encoding="utf-8") as f:
                         cfg = json.load(f)
                     if isinstance(cfg, dict):
-                        # app_config.json stores columns under columns_selected
                         if "columns" not in cfg and "columns_selected" in cfg:
                             cfg["columns"] = cfg.get("columns_selected") or []
                         return cfg
@@ -61,18 +58,7 @@ COLUMNS = CONFIG.get("columns") if isinstance(CONFIG.get("columns"), list) else 
 
 APP_NAME = str(APP.get("name") or "Dataiku WebApp")
 SUBTITLE = str(APP.get("subtitle") or "")
-
 DATASET_A = str(DATAIKU.get("dataset_a") or "dataset_a")
-DATASET_B = str(DATAIKU.get("dataset_b") or "")
-DATASET_C = str(DATAIKU.get("dataset_c") or "")
-
-"""
-Performance notes (Dataiku backend):
-
-- Dataiku Standard WebApp backends can time out if you load very large datasets on every request.
-- This backend caps Dataset A reads to TRANSFORM['limit'] rows (set in the generator) and caches the joined/filtered
-  base dataframe in-memory for a short TTL to keep requests snappy.
-"""
 
 CACHE_TTL_SECONDS = 60
 BASE_ROW_LIMIT = int((TRANSFORM or {}).get("limit") or 2000)
@@ -81,26 +67,18 @@ BASE_ROW_LIMIT = max(1, min(BASE_ROW_LIMIT, 200000))
 _BASE_CACHE = {"at": 0.0, "df": None, "note": ""}
 
 
-def _prefix_columns(df: pd.DataFrame, prefix: str) -> pd.DataFrame:
-    rename = {c: (prefix + c) for c in df.columns}
-    return df.rename(columns=rename)
-
-
-def _dataset_df(name: str, *, columns=None, limit=None) -> pd.DataFrame:
+def _dataset_df(name, *, columns=None, limit=None):
     if not name:
         raise ValueError("Missing dataset name.")
     ds = dataiku.Dataset(name)
-    kwargs = {}
+    kwargs = {"parse_dates": False}
     if columns:
         kwargs["columns"] = list(columns)
     if limit is not None:
         kwargs["limit"] = int(limit)
-    # Avoid heavy parsing; we convert dates/numbers on-demand in filters/computed columns.
-    kwargs["parse_dates"] = False
     try:
         return ds.get_dataframe(**kwargs)
     except TypeError:
-        # Older Dataiku SDK versions may not accept some kwargs.
         df = ds.get_dataframe()
         if columns:
             keep = [c for c in columns if c in df.columns]
@@ -108,204 +86,6 @@ def _dataset_df(name: str, *, columns=None, limit=None) -> pd.DataFrame:
         if limit is not None:
             df = df.head(int(limit))
         return df
-
-
-def _split_prefixed(col: str):
-    col = str(col or "")
-    if col.startswith("b__"):
-        return ("b", col[3:])
-    if col.startswith("c__"):
-        return ("c", col[3:])
-    return ("a", col)
-
-
-def _needed_columns():
-    """
-    Compute the minimal raw columns needed from each dataset to satisfy joins/filters/computed columns/output.
-    Returns (needed_a, needed_b_raw, needed_c_raw).
-    """
-    needed_a = set()
-    needed_b = set()
-    needed_c = set()
-
-    # Output columns
-    for c in COLUMNS if isinstance(COLUMNS, list) else []:
-        if not isinstance(c, dict):
-            continue
-        side, raw = _split_prefixed(c.get("name"))
-        if raw:
-            if side == "a":
-                needed_a.add(raw)
-            elif side == "b":
-                needed_b.add(raw)
-            elif side == "c":
-                needed_c.add(raw)
-
-    # Filters (transform filter groups)
-    for g in (TRANSFORM or {}).get("filter_groups") or []:
-        if not isinstance(g, dict):
-            continue
-        for f in g.get("filters") or []:
-            if not isinstance(f, dict):
-                continue
-            side, raw = _split_prefixed(f.get("column"))
-            if raw:
-                if side == "a":
-                    needed_a.add(raw)
-                elif side == "b":
-                    needed_b.add(raw)
-                elif side == "c":
-                    needed_c.add(raw)
-
-    # Sort
-    sort_cfg = (TRANSFORM or {}).get("sort") or {}
-    sort_col = str(sort_cfg.get("column") or "").strip()
-    if sort_col:
-        side, raw = _split_prefixed(sort_col)
-        if raw:
-            if side == "a":
-                needed_a.add(raw)
-            elif side == "b":
-                needed_b.add(raw)
-            elif side == "c":
-                needed_c.add(raw)
-
-    # Sidebar filters
-    ff_cols = (UI or {}).get("frontend_filters") if isinstance((UI or {}).get("frontend_filters"), list) else []
-    for col in ff_cols:
-        side, raw = _split_prefixed(col)
-        if raw:
-            if side == "a":
-                needed_a.add(raw)
-            elif side == "b":
-                needed_b.add(raw)
-            elif side == "c":
-                needed_c.add(raw)
-
-    # Chart columns (optional)
-    chart_cfg = (UI or {}).get("chart") or {}
-    for k in ("column", "x_column", "y_column"):
-        v = str(chart_cfg.get(k) or "").strip()
-        if v:
-            side, raw = _split_prefixed(v)
-            if raw:
-                if side == "a":
-                    needed_a.add(raw)
-                elif side == "b":
-                    needed_b.add(raw)
-                elif side == "c":
-                    needed_c.add(raw)
-
-    # Computed columns inputs
-    computed = (TRANSFORM or {}).get("computed_columns")
-    if isinstance(computed, list):
-        for cc in computed:
-            if not isinstance(cc, dict):
-                continue
-            ctype = str(cc.get("type") or "").strip()
-            if ctype in {"concat", "coalesce"}:
-                cols = cc.get("columns") if isinstance(cc.get("columns"), list) else []
-                for c in cols:
-                    side, raw = _split_prefixed(c)
-                    if raw:
-                        if side == "a":
-                            needed_a.add(raw)
-                        elif side == "b":
-                            needed_b.add(raw)
-                        elif side == "c":
-                            needed_c.add(raw)
-            elif ctype in {"date_format", "bucket"}:
-                side, raw = _split_prefixed(cc.get("column"))
-                if raw:
-                    if side == "a":
-                        needed_a.add(raw)
-                    elif side == "b":
-                        needed_b.add(raw)
-                    elif side == "c":
-                        needed_c.add(raw)
-
-    # Join keys
-    for step in _join_steps():
-        if not step.get("enabled"):
-            continue
-        right = str(step.get("right") or "")
-        keys = step.get("keys") if isinstance(step.get("keys"), list) else []
-        for k in keys:
-            if not isinstance(k, dict):
-                continue
-            left = str(k.get("left") or "").strip()
-            rk = str(k.get("right") or "").strip()
-            if left:
-                side, raw = _split_prefixed(left)
-                if raw:
-                    if side == "a":
-                        needed_a.add(raw)
-                    elif side == "b":
-                        needed_b.add(raw)
-                    elif side == "c":
-                        needed_c.add(raw)
-            if rk:
-                if right == "b":
-                    needed_b.add(rk)
-                elif right == "c":
-                    needed_c.add(rk)
-
-    # Ensure we always read at least one column from A.
-    if not needed_a:
-        needed_a = None
-    if not needed_b:
-        needed_b = None
-    if not needed_c:
-        needed_c = None
-    return (needed_a, needed_b, needed_c)
-
-
-def _join_steps() -> list:
-    """
-    Canonical join config is TRANSFORM['joins'] (sequential steps).
-    Backward compat: TRANSFORM['join_enabled'] + TRANSFORM['join'].
-    """
-    joins = (TRANSFORM or {}).get("joins")
-    if isinstance(joins, list) and joins:
-        out = []
-        for s in joins:
-            if not isinstance(s, dict):
-                continue
-            r = str(s.get("right") or "").strip().lower()
-            if r not in {"b", "c"}:
-                continue
-            out.append(
-                {
-                    "right": r,
-                    "enabled": bool(s.get("enabled")),
-                    "how": str(s.get("how") or "left").strip().lower(),
-                    "keys": s.get("keys") if isinstance(s.get("keys"), list) else [],
-                }
-            )
-        # Ensure stable order
-        by = {s["right"]: s for s in out if isinstance(s, dict) and s.get("right")}
-        res = []
-        if "b" in by:
-            res.append(by["b"])
-        if "c" in by:
-            res.append(by["c"])
-        return res
-
-    # Legacy: single join to B
-    join_enabled = bool((TRANSFORM or {}).get("join_enabled")) and bool(DATASET_B)
-    join = (TRANSFORM or {}).get("join") or {}
-    keys = join.get("keys") if isinstance(join.get("keys"), list) else []
-    pairs = []
-    for k in keys:
-        if not isinstance(k, dict):
-            continue
-        a = str(k.get("a") or "").strip()
-        b = str(k.get("b") or "").strip()
-        if a or b:
-            pairs.append({"left": a, "right": b})
-    if not pairs:
-        pairs = [{"left": "", "right": ""}]
-    return [{"right": "b", "enabled": join_enabled, "how": str(join.get("how") or "left").strip().lower(), "keys": pairs}]
 
 
 def _jsonable(value):
@@ -335,11 +115,11 @@ def _jsonable(value):
         return str(value)
 
 
-def _is_blank(series: pd.Series) -> pd.Series:
+def _is_blank(series):
     return series.isna() | (series.astype(str).str.strip() == "")
 
 
-def _mask_for_filter(df: pd.DataFrame, flt: dict) -> pd.Series:
+def _mask_for_filter(df, flt):
     col = str(flt.get("column") or "").strip()
     op = str(flt.get("op") or "").strip().lower()
     val = flt.get("value")
@@ -412,7 +192,7 @@ def _mask_for_filter(df: pd.DataFrame, flt: dict) -> pd.Series:
     raise ValueError("Unsupported filter operator: " + op)
 
 
-def _apply_filter_groups(df: pd.DataFrame) -> pd.DataFrame:
+def _apply_filter_groups(df):
     groups = (TRANSFORM or {}).get("filter_groups")
     if not isinstance(groups, list):
         return df
@@ -433,7 +213,7 @@ def _apply_filter_groups(df: pd.DataFrame) -> pd.DataFrame:
     return df[keep]
 
 
-def _apply_computed_columns(df: pd.DataFrame) -> pd.DataFrame:
+def _apply_computed_columns(df):
     computed = (TRANSFORM or {}).get("computed_columns")
     if not isinstance(computed, list):
         return df
@@ -486,79 +266,92 @@ def _apply_computed_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _build_base_dataframe() -> pd.DataFrame:
+def _needed_columns():
+    needed = set()
+    computed = (TRANSFORM or {}).get("computed_columns")
+    computed_names = set()
+    if isinstance(computed, list):
+        for cc in computed:
+            if isinstance(cc, dict) and cc.get("name"):
+                computed_names.add(str(cc.get("name")))
+
+    for c in COLUMNS if isinstance(COLUMNS, list) else []:
+        if not isinstance(c, dict):
+            continue
+        name = str(c.get("name") or "").strip()
+        if name and name not in computed_names:
+            needed.add(name)
+
+    for g in (TRANSFORM or {}).get("filter_groups") or []:
+        if not isinstance(g, dict):
+            continue
+        for f in g.get("filters") or []:
+            if isinstance(f, dict) and f.get("column"):
+                needed.add(str(f.get("column")))
+
+    sort_cfg = (TRANSFORM or {}).get("sort") or {}
+    sort_col = str(sort_cfg.get("column") or "").strip()
+    if sort_col and sort_col not in computed_names:
+        needed.add(sort_col)
+
+    ff_cols = (UI or {}).get("frontend_filters") if isinstance((UI or {}).get("frontend_filters"), list) else []
+    for col in ff_cols:
+        if col:
+            needed.add(str(col))
+
+    chart_cfg = (UI or {}).get("chart") or {}
+    for k in ("column", "x_column", "y_column"):
+        v = str(chart_cfg.get(k) or "").strip()
+        if v and v not in computed_names:
+            needed.add(v)
+
+    if isinstance(computed, list):
+        for cc in computed:
+            if not isinstance(cc, dict):
+                continue
+            ctype = str(cc.get("type") or "").strip()
+            if ctype in {"concat", "coalesce"}:
+                for c in cc.get("columns") or []:
+                    if c:
+                        needed.add(str(c))
+            elif ctype in {"date_format", "bucket"}:
+                c = str(cc.get("column") or "").strip()
+                if c:
+                    needed.add(c)
+
+    return needed if needed else None
+
+
+def _build_base_dataframe():
     now = time.time()
     cached = _BASE_CACHE.get("df")
     if cached is not None and (now - float(_BASE_CACHE.get("at") or 0.0)) < float(CACHE_TTL_SECONDS):
         return cached
 
-    needed_a, needed_b, needed_c = _needed_columns()
-    df = _dataset_df(DATASET_A, columns=needed_a, limit=BASE_ROW_LIMIT)
-
-    for step in _join_steps():
-        if not step.get("enabled"):
-            continue
-        right = str(step.get("right") or "")
-        how = str(step.get("how") or "left").strip().lower()
-        if how not in {"left", "inner"}:
-            raise ValueError("Join type must be 'left' or 'inner'.")
-
-        # Resolve right dataset and prefix.
-        if right == "b":
-            ds_name = DATASET_B
-            prefix = "b__"
-        else:
-            ds_name = DATASET_C
-            prefix = "c__"
-        if not ds_name:
-            raise ValueError("Join enabled but dataset name is missing for Dataset " + right.upper())
-
-        keys = step.get("keys") if isinstance(step.get("keys"), list) else []
-        pairs = [(str(k.get("left") or "").strip(), str(k.get("right") or "").strip()) for k in keys if isinstance(k, dict)]
-        pairs = [(a, b) for a, b in pairs if a and b]
-        if not pairs:
-            raise ValueError("Join is enabled but join keys are missing for Dataset " + right.upper())
-
-        left_on = [a for a, _ in pairs]
-        for a in left_on:
-            if a not in df.columns:
-                raise ValueError("Join key not found in left dataframe for Dataset " + right.upper() + ": " + a)
-
-        # For correctness, we load the full right dataset by default (but only needed columns).
-        # If you need to cap right-side joins for performance, set WEBAPP_RIGHT_MAX_ROWS in your code env.
-        right_cap = int(os.environ.get("WEBAPP_RIGHT_MAX_ROWS", "0") or "0")
-        right_limit = right_cap if right_cap > 0 else None
-        needed_right = needed_b if right == "b" else needed_c
-        df_r = _dataset_df(ds_name, columns=needed_right, limit=right_limit)
-        df_r = _prefix_columns(df_r, prefix)
-        right_on = [prefix + b for _, b in pairs]
-        for rkey, raw in zip(right_on, [b for _, b in pairs]):
-            if rkey not in df_r.columns:
-                raise ValueError("Join key not found in Dataset " + right.upper() + ": " + raw)
-
-        df = df.merge(df_r, how=how, left_on=left_on, right_on=right_on)
-
+    needed = _needed_columns()
+    df = _dataset_df(DATASET_A, columns=needed, limit=BASE_ROW_LIMIT)
     df = _apply_filter_groups(df)
     df = _apply_computed_columns(df)
+
     _BASE_CACHE["df"] = df
     _BASE_CACHE["at"] = now
-    _BASE_CACHE["note"] = f"Dataset A capped to first {BASE_ROW_LIMIT} rows for performance."
+    _BASE_CACHE["note"] = f"Dataset reads capped to first {BASE_ROW_LIMIT} rows for performance."
     return df
 
 
-def _selected_columns():
+def _selected_columns(df):
     cols = [{"name": c.get("name"), "label": c.get("label") or c.get("name")} for c in COLUMNS if isinstance(c, dict)]
-    # If nothing was selected (or if the generator is older), fall back to whatever the dataframe provides.
-    return [c for c in cols if c.get("name")]
+    cols = [c for c in cols if c.get("name")]
+    if not cols:
+        cols = [{"name": c, "label": c} for c in df.columns.tolist()]
+    return cols
 
 
-def _distinct_options(df: pd.DataFrame, col: str, *, max_items: int = 200):
+def _distinct_options(df, col, *, max_items=200):
     if col not in df.columns:
         return []
     s = df[col].dropna()
-    # Convert to string so the frontend can compare consistently.
     try:
-        # Faster than unique() on large-ish frames.
         vc = s.astype(str).value_counts(dropna=True)
         vals = [v for v in vc.index.tolist() if str(v).strip() != ""]
         return vals[:max_items]
@@ -574,9 +367,7 @@ def rows():
     try:
         df = _build_base_dataframe()
 
-        # Frontend (UI) filters from query params: ff_<column>=value
         filter_cols = (UI or {}).get("frontend_filters") if isinstance((UI or {}).get("frontend_filters"), list) else []
-        # Apply any provided filter params (exact match on string form).
         for col in filter_cols:
             if not isinstance(col, str) or not col:
                 continue
@@ -587,17 +378,13 @@ def rows():
                 continue
             df = df[df[col].astype(str) == str(qv)]
 
-        cols = _selected_columns()
-        if cols:
-            missing = [c["name"] for c in cols if c["name"] not in df.columns]
-            if missing:
-                raise ValueError("Selected columns not found: " + ", ".join(missing))
-        else:
-            cols = [{"name": c, "label": c} for c in df.columns.tolist()]
+        cols = _selected_columns(df)
+        missing = [c["name"] for c in cols if c["name"] not in df.columns]
+        if missing:
+            raise ValueError("Selected columns not found: " + ", ".join(missing))
 
         names = [c["name"] for c in cols]
 
-        # Sort
         sort_cfg = (TRANSFORM or {}).get("sort") or {}
         sort_col = str(sort_cfg.get("column") or "").strip()
         sort_dir = str(sort_cfg.get("direction") or "asc").strip().lower()
@@ -606,7 +393,6 @@ def rows():
                 raise ValueError("Sort column not found: " + sort_col)
             df = df.sort_values(by=[sort_col], ascending=(sort_dir != "desc"))
 
-        # Pagination
         cfg_limit = int((TRANSFORM or {}).get("limit") or 2000)
         cfg_limit = max(1, min(cfg_limit, 200000))
         pagination = bool((UI or {}).get("pagination"))
@@ -628,7 +414,6 @@ def rows():
 
         df_page = df_page[names]
 
-        # Records
         records = []
         for _, r in df_page.iterrows():
             rec = {}
@@ -636,10 +421,8 @@ def rows():
                 rec[name] = _jsonable(r.get(name))
             records.append(rec)
 
-        # Sidebar filter options (computed from the full filtered df, not just the page)
         filter_options = {c: _distinct_options(df, c) for c in filter_cols if isinstance(c, str) and c}
 
-        # Chart data
         chart_cfg = (UI or {}).get("chart") or {}
         chart = None
         if chart_cfg.get("enabled"):
@@ -661,9 +444,8 @@ def rows():
                 if xcol and xcol in df.columns:
                     sn = pd.to_numeric(df[xcol], errors="coerce").dropna()
                     if len(sn):
-                        counts, edges = pd.cut(sn, bins=bins, retbins=True, include_lowest=True, duplicates="drop")
+                        counts, _edges = pd.cut(sn, bins=bins, retbins=True, include_lowest=True, duplicates="drop")
                         vc = counts.value_counts().sort_index()
-                        # Use edge labels like "0-10"
                         labels = [str(i) for i in vc.index.astype(str).tolist()]
                         values = [int(v) for v in vc.values.tolist()]
                         chart = {"type": "hist", "column": xcol, "labels": labels, "values": values, "bins": bins}
@@ -672,15 +454,9 @@ def rows():
                 agg = str(chart_cfg.get("agg") or "count").strip().lower()
                 if xcol and xcol in df.columns:
                     x = df[xcol]
-                    # If it looks like a date, group by day.
                     xd = pd.to_datetime(x, errors="coerce", utc=True)
                     use_dates = int(xd.notna().sum()) >= max(3, int(0.5 * len(df)))
-                    if use_dates:
-                        key = xd.dt.date
-                        key_name = "date"
-                    else:
-                        key = x.astype(str)
-                        key_name = "value"
+                    key = xd.dt.date if use_dates else x.astype(str)
 
                     if agg == "count" or not ycol:
                         ser = df.groupby(key).size()
@@ -698,13 +474,10 @@ def rows():
                                 ser = df.groupby(key).size()
                                 agg = "count"
 
-                    ser = ser.dropna()
-                    ser = ser.sort_index()
-                    # Keep it readable
-                    ser = ser.tail(60)
+                    ser = ser.dropna().sort_index().tail(60)
                     labels = [str(x) for x in ser.index.tolist()]
                     values = [float(v) if v is not None else 0 for v in ser.values.tolist()]
-                    chart = {"type": "line", "x": xcol, "y": (ycol or agg), "key": key_name, "labels": labels, "values": values}
+                    chart = {"type": "line", "x": xcol, "y": (ycol or agg), "labels": labels, "values": values}
 
             elif ctype == "scatter":
                 max_points = int(chart_cfg.get("max_points") or 600)
@@ -718,23 +491,6 @@ def rows():
                     pts = [{"x": float(r.x), "y": float(r.y)} for r in tmp.itertuples(index=False)]
                     chart = {"type": "scatter", "x": xcol, "y": ycol, "points": pts, "max_points": max_points}
 
-        # Two-tables sample
-        b_sample = None
-        if (UI or {}).get("template") == "two_tables" and DATASET_B:
-            try:
-                df_b = _dataset_df(DATASET_B).head(200)
-                b_cols = [{"name": c, "label": c} for c in df_b.columns.tolist()]
-                b_rows = []
-                for _, rr in df_b.iterrows():
-                    b_rows.append({c["name"]: _jsonable(rr.get(c["name"])) for c in b_cols})
-                b_sample = {"columns": b_cols, "rows": b_rows}
-            except Exception:
-                b_sample = None
-
-        join = (TRANSFORM or {}).get("join") or {}
-        join_enabled = bool((TRANSFORM or {}).get("join_enabled")) and bool(DATASET_B)
-        joins = _join_steps()
-
         return jsonify(
             {
                 "status": "ok",
@@ -746,16 +502,10 @@ def rows():
                     "app_name": APP_NAME,
                     "subtitle": SUBTITLE,
                     "dataset_a": DATASET_A,
-                    "dataset_b": DATASET_B,
-                    "dataset_c": DATASET_C,
-                    "join_enabled": join_enabled,
-                    "join_how": str(join.get("how") or "left"),
-                    "joins": joins,
                     "columns": cols,
                     "ui": UI,
                     "filter_options": filter_options,
                     "chart": chart,
-                    "b_sample": b_sample,
                     "note": str(_BASE_CACHE.get("note") or ""),
                 },
             }

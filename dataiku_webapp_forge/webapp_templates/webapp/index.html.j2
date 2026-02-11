@@ -38,13 +38,6 @@
     </div>
   {% endif %}
 
-  {% if tpl == 'two_tables' %}
-    <div class="tabs2" role="tablist" aria-label="Tables">
-      <button class="tab2 active" type="button" data-tab="out">Output</button>
-      <button class="tab2" type="button" data-tab="b">Dataset B sample</button>
-    </div>
-  {% endif %}
-
   <div class="layout layout-{{ tpl }}">
     {% if tpl == 'sidebar_filters' %}
       <aside class="side">
@@ -55,7 +48,7 @@
     {% endif %}
 
     <div class="main">
-      <div class="card {% if tpl == 'two_tables' %}tabpanel active{% endif %}" data-tabpanel="out">
+      <div class="card">
         <div class="table-wrap">
           <table class="data-table">
             <thead id="tableHead"></thead>
@@ -63,17 +56,6 @@
           </table>
         </div>
       </div>
-
-      {% if tpl == 'two_tables' %}
-        <div class="card tabpanel" data-tabpanel="b">
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead id="bTableHead"></thead>
-              <tbody id="bTableBody"></tbody>
-            </table>
-          </div>
-        </div>
-      {% endif %}
     </div>
 
     {% if tpl == 'master_detail' %}

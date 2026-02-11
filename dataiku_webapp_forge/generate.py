@@ -124,18 +124,15 @@ def _expected_schema(project: Dict[str, Any], columns_selected: List[Dict[str, A
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "datasets": {
             "a": dataset_schema("a"),
-            "b": dataset_schema("b"),
-            "c": dataset_schema("c"),
         },
         "required": {
             "output_columns": [str(c.get("name")) for c in columns_selected if isinstance(c, dict) and c.get("name")],
             "filter_columns": [],
-            "join_columns": [],
             "computed_inputs": [],
         },
         "notes": [
             "Types are best-effort guesses from CSV sample rows captured in the Forge (may be empty if uploads were cleaned).",
-            "Dataset B columns appear in the backend as b__<col>. Dataset C columns appear as c__<col>.",
+            "Single-dataset mode: this generated backend reads only Dataset A.",
         ],
     }
 
@@ -148,24 +145,6 @@ def _expected_schema(project: Dict[str, Any], columns_selected: List[Dict[str, A
             if isinstance(f, dict) and f.get("column"):
                 filter_cols.append(str(f.get("column")))
     out["required"]["filter_columns"] = sorted(set(filter_cols))
-
-    # Joins (canonical)
-    joins = transform.get("joins") if isinstance(transform.get("joins"), list) else []
-    join_cols: List[str] = []
-    for s in joins:
-        if not isinstance(s, dict) or not s.get("enabled"):
-            continue
-        right = str(s.get("right") or "").lower()
-        for k in s.get("keys") or []:
-            if not isinstance(k, dict):
-                continue
-            left = str(k.get("left") or "").strip()
-            rk = str(k.get("right") or "").strip()
-            if left:
-                join_cols.append(left)
-            if rk and right in {"b", "c"}:
-                join_cols.append(f"{right}::{rk}")
-    out["required"]["join_columns"] = sorted(set(join_cols))
 
     # Computed columns inputs
     comp_inputs: List[str] = []

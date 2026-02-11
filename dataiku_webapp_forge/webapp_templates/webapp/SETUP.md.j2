@@ -4,28 +4,14 @@ This folder contains a **Dataiku Standard WebApp** using:
 
 - `index.html`: **HTML body only**
 - `style.css`, `script.js`
-- `backend.py`: Flask backend that reads Dataiku dataset(s) with pandas
-- `config.json`: generated config (datasets, joins, filters, columns, UI)
+- `backend.py`: Flask backend that reads one Dataiku dataset with pandas
+- `config.json`: generated config (dataset, filters, columns, UI)
 
-## Datasets
+## Dataset
 
 1) **Dataset A (required)**
-   - Name: `{{ dataiku.get('dataset_a') or 'dataset_a' }}` (default in `backend.py`)
+   - Name: `{{ dataiku.get('dataset_a') or 'dataset_a' }}`
    - Purpose: primary table shown in the UI
-
-2) **Dataset B (optional)**
-   - Name: `{{ dataiku.get('dataset_b') or '(not set)' }}`
-   - Used only if the generated config has join enabled.
-
-3) **Dataset C (advanced, optional)**
-   - Name: `{{ dataiku.get('dataset_c') or '(not set)' }}`
-   - Used only if the generated config enables the second join step.
-
-### Join notes (if enabled)
-
-- Dataset B columns are prefixed in-memory as `b__<column>` to avoid name collisions.
-- Dataset C columns are prefixed in-memory as `c__<column>` to avoid name collisions.
-- Joins are performed in `backend.py` with sequential `pandas.merge` steps.
 
 ## WebApp Setup Steps
 
@@ -36,13 +22,11 @@ This folder contains a **Dataiku Standard WebApp** using:
    - `script.js`
    - `backend.py`
    - `config.json`
-3) If your dataset names differ, update them in `config.json`:
+3) If your dataset name differs, update it in `config.json`:
    - `dataiku.dataset_a`
-   - `dataiku.dataset_b`
-   - `dataiku.dataset_c`
 4) Configure the WebApp code environment to include dependencies from `requirements.txt` (at minimum: `pandas`).
 
 ## Notes
 
-- `/rows` returns JSON with a **row limit** (configured in the generator).
-- Filters run in the backend before rows are returned to the browser.
+- `/rows` returns JSON with a row limit configured by Transform settings.
+- Filters and computed columns run in the backend before rows are returned to the browser.

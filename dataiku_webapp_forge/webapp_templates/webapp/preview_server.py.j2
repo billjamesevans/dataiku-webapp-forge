@@ -8,7 +8,7 @@ from flask import Flask, jsonify, request, send_from_directory
 APP_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
-def _load_config() -> dict:
+def _load_config():
     for fname in ("config.json", "app_config.json"):
         path = os.path.join(APP_DIR, fname)
         if os.path.isfile(path):
@@ -48,11 +48,11 @@ def _jsonable(value):
         return str(value)
 
 
-def _is_blank(series: pd.Series) -> pd.Series:
+def _is_blank(series):
     return series.isna() | (series.astype(str).str.strip() == "")
 
 
-def _mask_for_filter(df: pd.DataFrame, flt: dict) -> pd.Series:
+def _mask_for_filter(df, flt):
     col = str(flt.get("column") or "").strip()
     op = str(flt.get("op") or "").strip().lower()
     val = flt.get("value")
@@ -124,7 +124,7 @@ def _mask_for_filter(df: pd.DataFrame, flt: dict) -> pd.Series:
     return pd.Series([True] * len(df), index=df.index)
 
 
-def _apply_filter_groups(df: pd.DataFrame) -> pd.DataFrame:
+def _apply_filter_groups(df):
     groups = (TRANSFORM or {}).get("filter_groups")
     if not isinstance(groups, list):
         return df
@@ -144,7 +144,7 @@ def _apply_filter_groups(df: pd.DataFrame) -> pd.DataFrame:
     return df[keep]
 
 
-def _apply_computed_columns(df: pd.DataFrame) -> pd.DataFrame:
+def _apply_computed_columns(df):
     computed = (TRANSFORM or {}).get("computed_columns")
     if not isinstance(computed, list):
         return df
@@ -194,61 +194,15 @@ def _apply_computed_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _join_steps() -> list:
-    joins = (TRANSFORM or {}).get("joins")
-    if isinstance(joins, list) and joins:
-        out = []
-        for s in joins:
-            if not isinstance(s, dict):
-                continue
-            r = str(s.get("right") or "").strip().lower()
-            if r not in {"b", "c"}:
-                continue
-            out.append(
-                {
-                    "right": r,
-                    "enabled": bool(s.get("enabled")),
-                    "how": str(s.get("how") or "left").strip().lower(),
-                    "keys": s.get("keys") if isinstance(s.get("keys"), list) else [],
-                }
-            )
-        by = {s["right"]: s for s in out if isinstance(s, dict) and s.get("right")}
-        res = []
-        if "b" in by:
-            res.append(by["b"])
-        if "c" in by:
-            res.append(by["c"])
-        return res
-    return []
-
-
-def _prefix_columns(df: pd.DataFrame, prefix: str) -> pd.DataFrame:
-    return df.rename(columns={c: prefix + c for c in df.columns})
-
-
-def _csv_df(fname: str) -> pd.DataFrame:
+def _csv_df(fname):
     path = os.path.join(APP_DIR, fname)
     if not os.path.isfile(path):
         raise ValueError("Missing CSV file: " + fname)
     return pd.read_csv(path, dtype=str, keep_default_na=False, na_values=[])
 
 
-def _build_df() -> pd.DataFrame:
+def _build_df():
     df = _csv_df("sample_a.csv")
-    for step in _join_steps():
-        if not step.get("enabled"):
-            continue
-        right = str(step.get("right") or "")
-        how = str(step.get("how") or "left").strip().lower()
-        prefix = "b__" if right == "b" else "c__"
-        df_r = _csv_df("sample_b.csv" if right == "b" else "sample_c.csv")
-        df_r = _prefix_columns(df_r, prefix)
-        keys = step.get("keys") if isinstance(step.get("keys"), list) else []
-        pairs = [(str(k.get("left") or "").strip(), str(k.get("right") or "").strip()) for k in keys if isinstance(k, dict)]
-        pairs = [(a, b) for a, b in pairs if a and b]
-        left_on = [a for a, _ in pairs]
-        right_on = [prefix + b for _, b in pairs]
-        df = df.merge(df_r, how=how, left_on=left_on, right_on=right_on)
     df = _apply_filter_groups(df)
     df = _apply_computed_columns(df)
     return df
@@ -276,7 +230,6 @@ def script():
 def rows():
     df = _build_df()
 
-    # Frontend (UI) filters from query params: ff_<column>=value
     filter_cols = (UI or {}).get("frontend_filters") if isinstance((UI or {}).get("frontend_filters"), list) else []
     for col in filter_cols:
         if not isinstance(col, str) or not col:
@@ -297,14 +250,12 @@ def rows():
         cols = [{"name": c, "label": c} for c in df.columns.tolist()]
         names = [c["name"] for c in cols]
 
-    # Sort
     sort_cfg = (TRANSFORM or {}).get("sort") or {}
     sort_col = str(sort_cfg.get("column") or "").strip()
     sort_dir = str(sort_cfg.get("direction") or "asc").strip().lower()
     if sort_col and sort_col in df.columns:
         df = df.sort_values(by=[sort_col], ascending=(sort_dir != "desc"))
 
-    # Pagination (mirrors generated backend behavior)
     cfg_limit = int((TRANSFORM or {}).get("limit") or 2000)
     cfg_limit = max(1, min(cfg_limit, 200000))
     pagination = bool((UI or {}).get("pagination"))
@@ -328,7 +279,7 @@ def rows():
     for _, r in df_page.iterrows():
         records.append({k: _jsonable(r.get(k)) for k in names})
 
-    # Chart (supports bar/hist/line/scatter like the generated backend)
+    # Chart support (bar/hist/line/scatter)
     chart_cfg = (UI or {}).get("chart") or {}
     chart = None
     if chart_cfg.get("enabled"):
@@ -362,10 +313,7 @@ def rows():
                 x = df[xcol]
                 xd = pd.to_datetime(x, errors="coerce", utc=True)
                 use_dates = int(xd.notna().sum()) >= max(3, int(0.5 * len(df)))
-                if use_dates:
-                    key = xd.dt.date
-                else:
-                    key = x.astype(str)
+                key = xd.dt.date if use_dates else x.astype(str)
 
                 if agg == "count" or not ycol or ycol not in df.columns:
                     ser = df.groupby(key).size()
@@ -408,17 +356,11 @@ def rows():
                 "app_name": str(APP.get("name") or "Preview"),
                 "subtitle": str(APP.get("subtitle") or ""),
                 "dataset_a": "sample_a.csv",
-                "dataset_b": "sample_b.csv" if os.path.isfile(os.path.join(APP_DIR, "sample_b.csv")) else "",
-                "dataset_c": "sample_c.csv" if os.path.isfile(os.path.join(APP_DIR, "sample_c.csv")) else "",
-                "join_enabled": any(s.get("enabled") for s in _join_steps() if s.get("right") == "b"),
-                "join_how": "left",
-                "joins": _join_steps(),
                 "columns": cols,
                 "ui": UI,
                 "filter_options": {},
                 "chart": chart,
-                "b_sample": None,
-                "note": "Local preview uses CSVs named sample_a.csv/sample_b.csv/sample_c.csv.",
+                "note": "Local preview uses sample_a.csv (single-dataset mode).",
             },
         }
     )

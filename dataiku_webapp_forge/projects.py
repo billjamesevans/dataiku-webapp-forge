@@ -4,7 +4,7 @@ import shutil
 import time
 import uuid
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 @dataclass
@@ -54,24 +54,11 @@ def create_project(instance_dir: str) -> Project:
         },
         "dataiku": {
             "dataset_a": "dataset_a",
-            "dataset_b": "",
-            "dataset_c": "",
         },
         "csv": {
             "a": None,
-            "b": None,
-            "c": None,
         },
         "transform": {
-            # Backward-compat fields (kept in sync with joins[0] when possible).
-            "join_enabled": False,
-            "join": {"how": "left", "keys": [{"a": "", "b": ""}]},
-            # Canonical multi-join support: sequentially join the current dataframe to Dataset B and then Dataset C.
-            # Each key pair maps a left-column name (current dataframe) to a right-column name (right dataset).
-            "joins": [
-                {"right": "b", "enabled": False, "how": "left", "keys": [{"left": "", "right": ""}]},
-                {"right": "c", "enabled": False, "how": "left", "keys": [{"left": "", "right": ""}]},
-            ],
             # OR-of-AND filter groups: any group may match; within a group all filters must match.
             "filter_groups": [{"filters": []}],
             # Backward compat: earlier versions stored a flat list in transform.filters.
@@ -85,7 +72,7 @@ def create_project(instance_dir: str) -> Project:
         },
         "ui": {
             "row_details": True,
-            "template": "table",  # table|sidebar_filters|master_detail|chart_table|two_tables
+            "template": "table",  # table|sidebar_filters|master_detail|chart_table
             "frontend_filters": [],
             "pagination": False,
             "page_size": 200,
@@ -158,100 +145,17 @@ def normalize_project_data(data: Dict[str, Any]) -> Dict[str, Any]:
     dku = data.setdefault("dataiku", {})
     # Older projects used source_dataset/audit_dataset; map source_dataset to dataset_a.
     dku.setdefault("dataset_a", dku.get("source_dataset") or "dataset_a")
-    dku.setdefault("dataset_b", "")
-    dku.setdefault("dataset_c", "")
 
     csv = data.setdefault("csv", {})
     # Older projects stored csv.source/csv.audit; map source -> a.
     if "a" not in csv:
         csv["a"] = csv.get("source") or None
-    csv.setdefault("b", None)
-    csv.setdefault("c", None)
 
     transform = data.setdefault("transform", {})
-    transform.setdefault("join_enabled", False)
-    join = transform.setdefault("join", {"how": "left", "keys": [{"a": "", "b": ""}]})
-    # Migrate old single-key join fields if present.
-    if isinstance(join, dict) and ("left_on" in join or "right_on" in join):
-        left_on = str(join.get("left_on") or "").strip()
-        right_on = str(join.get("right_on") or "").strip()
-        join.pop("left_on", None)
-        join.pop("right_on", None)
-        join.setdefault("keys", [{"a": left_on, "b": right_on}])
-    join.setdefault("how", "left")
-    join.setdefault("keys", [{"a": "", "b": ""}])
-
-    # Canonical multi-join config: transform.joins
-    joins = transform.get("joins")
-    if not isinstance(joins, list):
-        joins = []
-
-    # Build joins from legacy join fields if missing/empty.
-    if not joins:
-        keys = join.get("keys") if isinstance(join.get("keys"), list) else []
-        pairs = []
-        for k in keys:
-            if not isinstance(k, dict):
-                continue
-            a = str(k.get("a") or "").strip()
-            b = str(k.get("b") or "").strip()
-            if a or b:
-                pairs.append({"left": a, "right": b})
-        if not pairs:
-            pairs = [{"left": "", "right": ""}]
-        joins = [
-            {
-                "right": "b",
-                "enabled": bool(transform.get("join_enabled")),
-                "how": str(join.get("how") or "left"),
-                "keys": pairs,
-            },
-            {"right": "c", "enabled": False, "how": "left", "keys": [{"left": "", "right": ""}]},
-        ]
-
-    # Normalize join steps, ensure we have b and c entries.
-    def _norm_step(step: Dict[str, Any], *, right: str) -> Dict[str, Any]:
-        out: Dict[str, Any] = {}
-        out["right"] = right
-        out["enabled"] = bool(step.get("enabled"))
-        out["how"] = str(step.get("how") or "left").strip().lower()
-        keys = step.get("keys") if isinstance(step.get("keys"), list) else []
-        kp: List[Dict[str, str]] = []
-        for k in keys:
-            if not isinstance(k, dict):
-                continue
-            left = str(k.get("left") or "").strip()
-            rightk = str(k.get("right") or "").strip()
-            if left or rightk:
-                kp.append({"left": left, "right": rightk})
-        if not kp:
-            kp = [{"left": "", "right": ""}]
-        out["keys"] = kp
-        return out
-
-    by_right: Dict[str, Dict[str, Any]] = {}
-    for s in joins:
-        if not isinstance(s, dict):
-            continue
-        r = str(s.get("right") or "").strip().lower()
-        if r in {"b", "c"} and r not in by_right:
-            by_right[r] = s
-    joins_norm = [
-        _norm_step(by_right.get("b") or {}, right="b"),
-        _norm_step(by_right.get("c") or {}, right="c"),
-    ]
-    transform["joins"] = joins_norm
-
-    # Keep backward compat fields in sync with join step B.
-    jb = joins_norm[0]
-    transform["join_enabled"] = bool(jb.get("enabled"))
-    transform.setdefault("join", {})
-    transform["join"]["how"] = str(jb.get("how") or "left")
-    transform["join"]["keys"] = [
-        {"a": str(k.get("left") or ""), "b": str(k.get("right") or "")}
-        for k in (jb.get("keys") or [])
-        if isinstance(k, dict)
-    ] or [{"a": "", "b": ""}]
+    # Keep these fields present for backward compatibility, but force single-dataset mode.
+    transform["join_enabled"] = False
+    transform["join"] = {"how": "left", "keys": [{"a": "", "b": ""}]}
+    transform["joins"] = []
 
     transform.setdefault("filters", [])
     # If we have a legacy flat filter list and no groups, wrap it into one group.

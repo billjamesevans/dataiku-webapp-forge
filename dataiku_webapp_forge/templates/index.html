@@ -3,7 +3,7 @@
   <section class="hero">
     <h1>Launch simple Dataiku webapps fast</h1>
     <p class="lead">
-      Upload 1-2 CSV exports (just to capture schemas), configure optional join and filters, pick columns and labels,
+      Upload one CSV export (just to capture schema), configure filters and columns,
       then export a Dataiku Standard WebApp bundle: <span class="mono">index.html</span> (body-only),
       <span class="mono">style.css</span>, <span class="mono">script.js</span>, <span class="mono">backend.py</span>,
       and <span class="mono">SETUP.md</span>.
@@ -82,8 +82,6 @@
                 <td class="muted">
                   {% set dku = (p.data.get('dataiku') or {}) %}
                   <span class="mono">{{ dku.get('dataset_a') or 'dataset_a' }}</span>
-                  {% if dku.get('dataset_b') %}<span class="mono"> + {{ dku.get('dataset_b') }}</span>{% endif %}
-                  {% if dku.get('dataset_c') %}<span class="mono"> + {{ dku.get('dataset_c') }}</span>{% endif %}
                 </td>
                 <td>
                   {% set tags = ((p.data.get('meta') or {}).get('tags') or []) %}

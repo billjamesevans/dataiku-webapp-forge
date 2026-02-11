@@ -3,7 +3,7 @@
   <section class="card">
     <div class="card-header">
       <h2>Sources</h2>
-      <div class="muted">Upload CSV exports to capture column names and samples. The export zip contains only code.</div>
+      <div class="muted">Single dataset mode: upload one CSV export to capture your schema.</div>
     </div>
     <div class="card-body">
       {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
@@ -22,57 +22,21 @@
 
         <div class="grid2">
           <div>
-            <label>Dataiku Dataset A (required)</label>
+            <label>Dataiku Dataset (required)</label>
             <input name="dataset_a" value="{{ (project.data.get('dataiku') or {}).get('dataset_a') or '' }}" placeholder="dataset_a" />
-            <div class="hint">Primary dataset the webapp reads.</div>
-          </div>
-          <div>
-            <label>Dataiku Dataset B (optional)</label>
-            <input name="dataset_b" value="{{ (project.data.get('dataiku') or {}).get('dataset_b') or '' }}" placeholder="dataset_b" />
-            <div class="hint">Optional second dataset for joins (Transform tab).</div>
-          </div>
-        </div>
-
-        <div class="grid2">
-          <div>
-            <label>Dataiku Dataset C (advanced, optional)</label>
-            <input name="dataset_c" value="{{ (project.data.get('dataiku') or {}).get('dataset_c') or '' }}" placeholder="dataset_c" />
-            <div class="hint">Optional third dataset for chained joins (A -> B -> C).</div>
+            <div class="hint">This dataset is what the generated backend reads in Dataiku.</div>
           </div>
           <div></div>
         </div>
 
         <div class="grid2">
           <div>
-            <label>CSV A Export (required)</label>
+            <label>CSV Export (required)</label>
             <input type="file" name="csv_a" accept=".csv,text/csv" />
             {% if csv_a %}
               <div class="note">
                 <div><b>Current:</b> <span class="mono">{{ csv_a.get('filename') }}</span></div>
                 <div class="muted">{{ (csv_a.get('columns') or [])|length }} columns detected</div>
-              </div>
-            {% endif %}
-          </div>
-          <div>
-            <label>CSV B Export (optional)</label>
-            <input type="file" name="csv_b" accept=".csv,text/csv" />
-            {% if csv_b %}
-              <div class="note">
-                <div><b>Current:</b> <span class="mono">{{ csv_b.get('filename') }}</span></div>
-                <div class="muted">{{ (csv_b.get('columns') or [])|length }} columns detected</div>
-              </div>
-            {% endif %}
-          </div>
-        </div>
-
-        <div class="grid2">
-          <div>
-            <label>CSV C Export (advanced, optional)</label>
-            <input type="file" name="csv_c" accept=".csv,text/csv" />
-            {% if csv_c %}
-              <div class="note">
-                <div><b>Current:</b> <span class="mono">{{ csv_c.get('filename') }}</span></div>
-                <div class="muted">{{ (csv_c.get('columns') or [])|length }} columns detected</div>
               </div>
             {% endif %}
           </div>
