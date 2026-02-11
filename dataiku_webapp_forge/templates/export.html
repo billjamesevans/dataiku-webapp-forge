@@ -14,20 +14,66 @@
       <div class="hint">These are exactly what will be inside the zip.</div>
 
       {% for a in apps %}
+        {% set app_idx = loop.index0 %}
         <details class="details" {% if loop.first %}open{% endif %}>
           <summary class="summary">
             <span class="mono">{{ a.slug }}</span>
             <span class="muted">{{ a.title }}</span>
           </summary>
           {% for fname, content in a.files.items() %}
+            {% set code_id = "code-" ~ app_idx ~ "-" ~ loop.index0 %}
             <details class="details file">
-              <summary class="summary"><span class="mono">{{ fname }}</span></summary>
-              <pre class="code"><code>{{ content }}</code></pre>
+              <summary class="summary">
+                <span class="mono">{{ fname }}</span>
+                <button class="btn btn-small copy-btn" type="button" data-copy-target="{{ code_id }}">Copy</button>
+              </summary>
+              <pre id="{{ code_id }}" class="code"><code>{{ content }}</code></pre>
             </details>
           {% endfor %}
         </details>
       {% endfor %}
     </div>
   </section>
-{% endblock %}
 
+  <script>
+    (function () {
+      async function copyText(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          return;
+        }
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+
+      document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-copy-target]');
+        if (!btn) return;
+        // Prevent toggling the details element when clicking inside <summary>.
+        e.preventDefault();
+        e.stopPropagation();
+        var id = btn.getAttribute('data-copy-target');
+        var el = id ? document.getElementById(id) : null;
+        if (!el) return;
+
+        var text = el.textContent || '';
+        var prev = btn.textContent;
+        copyText(text)
+          .then(function () {
+            btn.textContent = 'Copied';
+            setTimeout(function () { btn.textContent = prev; }, 1200);
+          })
+          .catch(function () {
+            btn.textContent = 'Failed';
+            setTimeout(function () { btn.textContent = prev; }, 1200);
+          });
+      });
+    })();
+  </script>
+{% endblock %}

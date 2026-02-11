@@ -426,6 +426,7 @@ textarea{resize:vertical; min-height: 120px;}
   gap:10px;
   justify-content:space-between;
 }
+.copy-btn{ min-width: 70px; }
 .code{
   margin:0;
   padding: 12px;
